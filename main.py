@@ -15,6 +15,13 @@ import pdb
 import random
 
 
+def debug_iter(iterable, length=None):
+    for index, element in enumerate(iterable):
+        if (index % 1000) == 0:
+            print('\r', index, '/', length, end='')
+        yield element
+
+
 class Graph(object):
     graph_folder = 'graphs'
     matrix_folder = 'matrix'
@@ -63,18 +70,6 @@ class Graph(object):
     def load_from_file(self):
         self.graph = gt.load_graph(self.gt_file_path, fmt='gt')
 
-    def get_all_nodes_from_adjacency_list(self):
-        print('getting all nodes...')
-        nodes = set()
-        with io.open(self.graph_file_path, encoding='utf-8') as infile:
-            for index, line in enumerate(infile):
-                print('\r', index, '/', 15791883, end='')
-                node, nbs = line.strip().split('\t')[:2]
-                nbs = nbs.split(';')[:self.N]
-                nodes.add(node)
-                nodes.update(nbs)
-        return nodes
-
     def get_recommenders_from_adjacency_list(self):
         recommenders = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
@@ -83,19 +78,27 @@ class Graph(object):
         return recommenders
 
     def load_nodes_from_adjacency_list(self):
-        nodes = self.get_all_nodes_from_adjacency_list()
-        for node in nodes:
+        print('\ngetting all nodes...')
+        nodes = set()
+        with io.open(self.graph_file_path, encoding='utf-8') as infile:
+            for line in debug_iter(infile, 15791883):
+                node, nbs = line.strip().split('\t')
+                nbs = nbs.split(';')[:self.N]
+                nodes.add(node)
+                nodes.update(nbs)
+
+        print('\nadding nodes to graph...')
+        for node in debug_iter(nodes, len(nodes)):
             v = self.name2node[node]
             self.names[v] = node
         self.graph.vp['name'] = self.names
 
     def load_from_adjacency_list(self):
         self.load_nodes_from_adjacency_list()
-        print('loading edges...')
+        print('\nloading edges...')
         edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
-            for index, line in enumerate(infile):
-                print('\r', index, '/', 15791883, end='')
+            for line in debug_iter(infile, 15791883):
                 node, nbs = line.strip().split('\t')
                 nbs = nbs.split(';')[:self.N]
                 v = self.graph.vertex_index[self.name2node[node]]
@@ -113,8 +116,8 @@ class Graph(object):
         stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
         stats['cc'] = self.clustering_coefficient()
         stats['cp_size'], stats['cp_count'] = self.largest_component()
-        stats['bow_tie'] = self.bow_tie()
-        stats['lc_ecc'] = self.eccentricity()
+        # stats['bow_tie'] = self.bow_tie()
+        # stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
@@ -276,35 +279,32 @@ class Graph(object):
 def convert_graph_file(fname):
     fpath_old = os.path.join('graphs', fname)
     fpath_new = os.path.join('graphs', ''.join(fname.split('_original')))
-    with io.open(fpath_old, encoding='utf-8') as infile,\
-        io.open(fpath_new, 'w', encoding='utf-8') as outfile:
-        cur_node, cur_nbs = None, []
+    node2nbs = collections.defaultdict(list)
+    with io.open(fpath_old, encoding='utf-8') as infile:
         for lidx, line in enumerate(infile):
             if (lidx % 1000) == 0:
                 print('\r', lidx, '/', 80482288, end='')
             if lidx == 0:
                 continue
             node, nb = line.strip().split('\t')[:2]
-            if cur_node is not None and node != cur_node:
-                outfile.write(cur_node + '\t' + ';'.join(cur_nbs) + '\n')
-                cur_nbs = []
-            cur_nbs.append(nb)
-            cur_node = node
-        outfile.write(cur_node + '\t' + ';'.join(cur_nbs) + '\n')
+            node2nbs[node].append(nb)
 
+    with io.open(fpath_new, 'w', encoding='utf-8') as outfile:
+        for node, nbs in node2nbs.items():
+            outfile.write(node + '\t' + ';'.join(nbs) + '\n')
 
 if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
     # convert_graph_file('recommender_network_top20links_original.tsv')
-    
-    g = Graph(fname='recommender_network_top20links', N=1,
+
+    g = Graph(fname='recommender_network_top20links', N=20,
               use_sample=False, refresh=False)
     g.load_graph(refresh=False)
     g.compute_stats()
-    g.update_stats()
-    
+    # g.update_stats()
+
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
 
