@@ -64,9 +64,11 @@ class Graph(object):
         self.graph = gt.load_graph(self.gt_file_path, fmt='gt')
 
     def get_all_nodes_from_adjacency_list(self):
+        print('getting all nodes...')
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
-            for line in infile:
+            for index, line in enumerate(infile):
+                print('\r', index, '/', 15791883, end='')
                 node, nbs = line.strip().split('\t')[:2]
                 nbs = nbs.split(';')[:self.N]
                 nodes.add(node)
@@ -89,10 +91,11 @@ class Graph(object):
 
     def load_from_adjacency_list(self):
         self.load_nodes_from_adjacency_list()
+        print('loading edges...')
         edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for index, line in enumerate(infile):
-                print(index+1, end='\r')
+                print('\r', index, '/', 15791883, end='')
                 node, nbs = line.strip().split('\t')
                 nbs = nbs.split(';')[:self.N]
                 v = self.graph.vertex_index[self.name2node[node]]
@@ -296,8 +299,8 @@ if __name__ == '__main__':
 
     # convert_graph_file('recommender_network_top20links_original.tsv')
     
-    g = Graph(fname='recommender_network_top20links.tsv', N=1,
-              use_sample=True, refresh=False)
+    g = Graph(fname='recommender_network_top20links', N=1,
+              use_sample=False, refresh=False)
     g.load_graph(refresh=False)
     g.compute_stats()
     g.update_stats()
