@@ -13,6 +13,13 @@ import numpy as np
 import os
 import pdb
 import random
+import re
+
+
+DATA_DIR = 'enwiki'
+WIKI_NAME = 'enwiki'
+WIKI_CODE = 'en'
+DUMP_DATE = '20150304'
 
 
 def debug_iter(iterable, length=None):
@@ -23,26 +30,23 @@ def debug_iter(iterable, length=None):
 
 
 class Graph(object):
-    graph_folder = 'graphs'
-    matrix_folder = 'matrix'
-    stats_folder = os.path.join(graph_folder, 'stats')
-
-    def __init__(self, fname='', N=None, use_sample=False, refresh=False,
-                 suffix=''):
+    def __init__(self, fname='', N=None, use_sample=False,
+                 refresh=False, suffix=''):
         print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
-        if not os.path.exists(Graph.stats_folder):
-            os.makedirs(Graph.stats_folder)
+        self.stats_folder = os.path.join(DATA_DIR, 'stats')
+        if not os.path.exists(self.stats_folder):
+            os.makedirs(self.stats_folder)
         self.use_sample = use_sample
         self.graph_name = fname if not use_sample else fname + '_sample'
-        self.graph_file_path = os.path.join(Graph.graph_folder,
+        self.graph_file_path = os.path.join(DATA_DIR,
                                             self.graph_name + '.tsv')
         self.N = N
         self.gt_file_path = os.path.join(
-            Graph.graph_folder,
+            DATA_DIR,
             self.graph_name + '_' + str(self.N) + suffix + '.gt'
         )
         self.stats_file_path = os.path.join(
-            Graph.stats_folder,
+            self.stats_folder,
             self.graph_name + '_' + str(self.N) + suffix + '.obj'
         )
         self.graph = gt.Graph(directed=True)
@@ -105,6 +109,20 @@ class Graph(object):
                 edges += [(v, self.graph.vertex_index[self.name2node[n]])
                           for n in nbs]
         self.graph.add_edge_list(edges)
+        self.load_titles()
+
+    def load_titles(self):
+        print('loading titles for the English Wikipedia...')
+        # load id2title dict
+        with open(os.path.join(DATA_DIR, 'id2title.obj'), 'rb') as infile:
+            id2title = pickle.load(infile)
+
+        # assign titles as a vertex property
+        vp_title = self.graph.new_vertex_property('string')
+        for vertex in self.graph.vertices():
+            vp_title[self.graph.vertex(vertex)] = id2title[vertex]
+        self.graph.vp['title'] = vp_title
+        self.save()
 
     def save(self):
         self.graph.save(self.gt_file_path, fmt='gt')
@@ -114,7 +132,7 @@ class Graph(object):
         stats = {}
         data = self.basic_stats()
         stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
-        stats['cc'] = self.clustering_coefficient()
+        # stats['cc'] = self.clustering_coefficient()
         stats['cp_size'], stats['cp_count'] = self.largest_component()
         # stats['bow_tie'] = self.bow_tie()
         # stats['lc_ecc'] = self.eccentricity()
@@ -143,6 +161,12 @@ class Graph(object):
         with open(self.stats_file_path, 'wb') as outfile:
             pickle.dump(stats, outfile, -1)
         print()
+
+    def print_stats(self):
+        with open(self.stats_file_path, 'rb') as infile:
+            stats = pickle.load(infile)
+        for k, v in stats.items():
+            print(k, v)
 
     def aggregate_ecc(self, dirname):
         fnames = os.listdir(dirname)
@@ -185,10 +209,25 @@ class Graph(object):
     def largest_component(self):
         print('largest_component()')
         component, histogram = gt.label_components(self.graph)
-        return [
-            100 * max(histogram) / self.graph.num_vertices(),
-            len(histogram),
-        ]
+        # return [
+        #     100 * max(histogram) / self.graph.num_vertices(),  # size of SCC
+        #     len(histogram),  # number of strongly connected components
+        # ]
+
+        # get number of vertices per component
+        comp2verts = {i: list() for i in range(len(histogram))}
+        for node, comp in enumerate(component.a):
+            comp2verts[comp].append(node)
+        comp2verts = {k: v for k, v in comp2verts.items() if len(v) > 1}
+
+        # https://graph-tool.skewed.de/static/doc/topology.html#graph_tool.topology.label_components
+        # get all components with at least two vertices
+        comps = []
+        for comp, verts in comp2verts.items():
+            comps.append(verts)
+        comps.sort(key=len)
+
+        return comps
 
     def bow_tie(self):
         print('bow tie')
@@ -277,8 +316,8 @@ class Graph(object):
 
 
 def convert_graph_file(fname):
-    fpath_old = os.path.join('graphs', fname)
-    fpath_new = os.path.join('graphs', ''.join(fname.split('_original')))
+    fpath_old = os.path.join('enwiki', fname)
+    fpath_new = os.path.join('enwiki', ''.join(fname.split('_original')))
     node2nbs = collections.defaultdict(list)
     with io.open(fpath_old, encoding='utf-8') as infile:
         for lidx, line in enumerate(infile):
@@ -293,16 +332,39 @@ def convert_graph_file(fname):
         for node, nbs in node2nbs.items():
             outfile.write(node + '\t' + ';'.join(nbs) + '\n')
 
+
+def get_id_dict():
+    id2title = {}
+    fname = os.path.join(DATA_DIR, WIKI_NAME + '-' + DUMP_DATE + '-page.sql')
+    with io.open(fname, encoding='utf-8') as infile:
+        lidx = 1
+        for line in infile:
+            print('\r', lidx, end='')
+            lidx += 1
+            if not line.startswith('INSERT'):
+                continue
+            matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
+            for page_id, page_namespace, page_title in matches:
+                if page_namespace != '0':
+                    continue
+                id2title[int(page_id)] = page_title
+
+        with open(os.path.join(DATA_DIR, 'id2title.obj'), 'wb') as outfile:
+            pickle.dump(id2title, outfile, -1)
+
+
 if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
     # convert_graph_file('recommender_network_top20links_original.tsv')
+    # get_id_dict()
 
-    g = Graph(fname='recommender_network_top20links', N=20,
-              use_sample=False, refresh=False)
+    g = Graph(fname='recommender_network_top20links',
+              use_sample=False, refresh=False, N=1)
     g.load_graph(refresh=False)
-    g.compute_stats()
+    # g.compute_stats()
+    # g.print_stats()
     # g.update_stats()
 
     end_time = datetime.now()
