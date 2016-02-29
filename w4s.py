@@ -18,7 +18,7 @@ import random
 import re
 
 
-def article_generator(offset=0):
+def article_generator(offset=0, start=None):
     # get list of files
     fpath = os.path.join('w4s', 'articles.txt')
     with io.open(fpath, encoding='utf-8') as infile:
@@ -26,13 +26,16 @@ def article_generator(offset=0):
 
     # extract first link that is not in italics or in parentheses
     counter = 0
-    for file in files.splitlines():
-        fpath = os.path.join('w4s', file[0].lower(), file + '.htm')
-        with io.open(fpath, encoding='utf-8') as infile:
-            data = infile.read()
-            if counter >= offset:
-                yield file, data
+    for f in files.splitlines():
+        if f == start:
+            start = None
+        if counter < offset or start is not None:
             counter += 1
+            continue
+        fpath = os.path.join('w4s', f[0].lower(), f + '.htm')
+        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
+            data = infile.read()
+            yield f, data
 
 
 class Parser(object):
@@ -142,9 +145,12 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         HTMLParser.HTMLParser.feed(self, data)
 
     def handle_starttag(self, tag, attrs):
-        # if tag == 'a' and 'Rabbit' in ' '.join([a[1] for a in attrs]):
+        # if self.debug and tag == 'a' and\
+        #     'Extraso' in ' '.join([a[1] for a in attrs]):
+        #     print('    -->', self.parentheses_counter)
+        #     print('    -->', self.tracking_table, self.table_counter,
+        #           self.tracking_div, self.div_counter)
         #     pdb.set_trace()
-
 
         if (tag == 'a' and self.div_counter == 0 and self.table_counter == 0)\
                 and (self.parentheses_counter == 0 or self.first_link_found):
@@ -153,7 +159,9 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             href = [a[1] for a in attrs if a[0] == 'href']
             # if href and href[0].startswith('/wiki/'):
             if href and href[0].startswith('../../wp/'):
-                self.fed.append(href[0].split('/')[-1].split('#')[0].rsplit('.')[0])
+                self.fed.append(
+                    href[0].split('/')[-1].split('#')[0].rsplit('.')[0]
+                )
                 self.tracking_link = True
                 self.first_link_found = True
 
@@ -193,7 +201,6 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 self.table_counter -= 1
                 if self.table_counter == 0:
                     self.tracking_table = min(0, self.tracking_table-1)
-            # pdb.set_trace(); print(self.tracking_table, self.table_counter, self.tracking_div, self.div_counter)
 
     def handle_data(self, d):
         # if not self.tracking_link:
@@ -211,10 +218,11 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.parentheses_counter += par_diff
         # if self.parentheses_counter > 0:
         #     print(self.parentheses_counter, d)
-        if 'rufus' in d:
-            self.debug_found = True
-        if self.debug_found:
-            print(self.parentheses_counter, d)
+        # if 'Notable' in d:
+        #     self.debug_found = True
+        # if self.debug_found:
+        #     print(self.parentheses_counter, d)
+        # print(self.parentheses_counter, d)
 
     def get_data(self):
         return self.fed
@@ -224,17 +232,12 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # parser = WikipediaHTMLParser(debug=False)
-    parser = WikipediaHTMLParser(debug=True)
+    parser = WikipediaHTMLParser(debug=False)
+    # parser = WikipediaHTMLParser(debug=True)
     for idx, (title, html) in enumerate(article_generator()):
         print(title)
         parser.feed(html)
-        links = parser.get_data()
-        if len(links) < 2:
-            pdb.set_trace()
-        # for link in links[:10]:
-        #     print('   ', link)
-        # pdb.set_trace()
+        link = parser.get_data()[:1]
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
