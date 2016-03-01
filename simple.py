@@ -15,59 +15,14 @@ import os
 import pdb
 import re
 
-from main import debug_iter, get_id_dict
+from main import debug_iter, get_id_dict, get_redirect_dict,\
+    get_resolved_redirects, read_pickle
 from crawler import Crawler
 
 DATA_DIR = 'simplewiki'
 WIKI_NAME = 'simplewiki'
 WIKI_CODE = 'simple'
 DUMP_DATE = '20160203'
-
-
-def read_pickle(fpath):
-    with open(fpath, 'rb') as infile:
-        obj = pickle.load(infile)
-    return obj
-
-
-def get_redirect_dict(data_dir, wiki_name, dump_date):
-    id2redirect = {}
-    fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-redirect.sql')
-    with io.open(fname, encoding='utf-8') as infile:
-        lidx = 1
-        for line in infile:
-            print(lidx, end='\r')
-            lidx += 1
-            if not line.startswith('INSERT'):
-                continue
-            matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
-            for page_id, page_namespace, page_title in matches:
-                if page_namespace != '0':
-                    continue
-                id2redirect[int(page_id)] = page_title
-
-        with open(os.path.join(data_dir, 'id2redirect.obj'), 'wb') as outfile:
-            pickle.dump(id2redirect, outfile, -1)
-
-
-def resolve_redirects(data_dir):
-    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
-    title2id = {v: k for k, v in id2title.iteritems()}
-    id2redirect = read_pickle(os.path.join(data_dir, 'id2redirect.obj'))
-
-    title2redirect = {}
-    idx = 1
-    length = len(id2redirect)
-    for k, v in id2redirect.iteritems():
-        print(idx, '/', length, end='\r')
-        idx += 1
-        try:
-            title2redirect[id2title[k]] = title2id[v]
-        except KeyError:
-            pass
-
-    with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
-        pickle.dump(title2redirect, outfile, -1)
 
 
 def crawl(data_dir, wiki_name, wiki_code, dump_date):
@@ -84,6 +39,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.tracking_link = False
         self.parentheses_counter = 0
         self.first_link_found = False
+        self.first_p_found = False
         self.tracking_div = 0
         self.div_counter = 0
         self.table_counter = 0
@@ -91,11 +47,19 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.debug = debug
         self.debug_found = False
 
+        self.skip_divs = [
+            'thumb',
+            'thumb tright',
+            'thumb tleft',
+            'boilerplate metadata'
+        ]
+
     def reset(self):
         self.fed = []
         self.tracking_link = False
         self.parentheses_counter = 0
         self.first_link_found = False
+        self.first_p_found = False
         self.tracking_div = 0
         self.div_counter = 0
         self.table_counter = 0
@@ -105,6 +69,11 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
     def feed(self, data):
         self.reset()
+        end_strings = [
+            '<h2><span class="mw-headline" id="References">',
+        ]
+        for end_string in end_strings:
+            data = data.split(end_string)[0]
         HTMLParser.HTMLParser.feed(self, data)
 
     def handle_starttag(self, tag, attrs):
@@ -116,23 +85,24 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         #     pdb.set_trace()
 
         if (tag == 'a' and self.div_counter == 0 and self.table_counter == 0)\
-                and (self.parentheses_counter == 0 or self.first_link_found):
+                and (self.parentheses_counter == 0 or self.first_link_found)\
+                and self.first_p_found:
             if self.debug:
                 print('a, 0', tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
-            # if href and href[0].startswith('/wiki/'):
-            if href and href[0].startswith('../../wp/'):
-                self.fed.append(
-                    href[0].split('/')[-1].split('#')[0].rsplit('.', 1)[0]
-                )
-                self.tracking_link = True
-                self.first_link_found = True
+            if href and href[0].startswith('/wiki/') and\
+                not href[0].startswith('/wiki/Wikipedia:'):
+                    self.fed.append(
+                        href[0].split('/', 2)[-1].split('#')[0]
+                    )
+                    self.tracking_link = True
+                    self.first_link_found = True
 
         elif tag == 'div':
             if self.debug:
                 print('div OPEN', tag, attrs)
             aclass = [a[1] for a in attrs if a[0] == 'class']
-            if aclass and 'thumb tright' in aclass[0]:
+            if aclass and aclass[0] in self.skip_divs:
                 self.tracking_div += 1
             if self.tracking_div:
                 self.div_counter += 1
@@ -146,6 +116,9 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             self.tracking_table += 1
             if self.tracking_table:
                 self.table_counter += 1
+
+        elif tag == 'p':
+            self.first_p_found = True
 
     def handle_endtag(self, tag):
         if tag == 'a' and self.tracking_link:
@@ -191,18 +164,16 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         return self.fed
 
 
-def article_generator(data_dir, offset=0, start=None, limit=None):
+def article_generator(data_dir, id2title, title2id, title2redirect, start=None, limit=None):
     # get file ids
-    with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
-        id2title = pickle.load(infile)
-    pids = sorted(id2title)
+    pids = sorted(set(id2title.keys()) - set(title2id[t] for t in title2redirect))
 
     # extract first link that is not in italics or in parentheses
     counter = 0
     for pid in pids:
         if pid == start:
             start = None
-        if counter < offset or start is not None:
+        if start is not None:
             counter += 1
             continue
         if limit and counter > limit:
@@ -215,27 +186,59 @@ def article_generator(data_dir, offset=0, start=None, limit=None):
                 json_data = data['query']['pages'][pid_u]['revisions'][0]['*']
                 yield id2title[pid], pid_u, json_data
             except KeyError:
+                pdb.set_trace()
                 print('yielding None')
                 yield None, None, None
 
 
+def resolve_redirects(links, title2id, title2redirect):
+    result = []
+    for link in links:
+        try:
+            result.append(title2redirect[link])
+        except KeyError:
+            # try: # TODO TODO TODO
+                result.append(title2id[link])
+            # except KeyError:
+            #     # a link to an article that didn't exist at DUMP_DATE, but
+            #     # unfortunately is linked in the old revision retrieved via API
+            #     pass
+    return result
+
+
 if __name__ == '__main__':
     # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
-    # get_redirect_dict()
-    # resolve_redirects()
+    # get_redirect_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
+    # get_resolved_redirects(DATA_DIR)
 
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
-
+    #
     # extract the first 20 links
+    id2title = read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
+    title2id = {v: k for k, v in id2title.items()}
+    title2redirect = read_pickle(os.path.join(DATA_DIR, 'title2redirect.obj'))
     title2links = {}
     parser = WikipediaHTMLParser(debug=False)
     # parser = WikipediaHTMLParser(debug=True)
-    for idx, (title, pid, html) in enumerate(article_generator(DATA_DIR)):
-        print(title)
+    for idx, (title, pid, html) in enumerate(
+            article_generator(
+                DATA_DIR, id2title, title2id, title2redirect,
+                start=112
+            )
+    ):
+        print(pid, title, 'http://simple.wikipedia.org/wiki/' + title)
         parser.feed(html)
-        links = parser.get_data()[:20]
+        # links = parser.get_data()[:20]
+        links = parser.get_data()
         links = [l.replace('%25', '%') for l in links]  # fix double % encoding
-        pdb.set_trace()
+        # for l in links[:10]:
+        # for l in links[:10]:
+        #     print('   ', l)
+        # print('.........')
+        # for l in links[-10:]:
+        #     print('   ', l)
+        title2links[pid] = resolve_redirects(links, title2id, title2redirect)
+        # pdb.set_trace()
 
     with io.open(os.path.join(DATA_DIR, 'top20links.tsv'), 'w',
                  encoding='utf-8') as outfile:

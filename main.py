@@ -14,6 +14,7 @@ import os
 import pdb
 import random
 import re
+import urllib
 
 
 DATA_DIR = 'enwiki'
@@ -339,6 +340,55 @@ def convert_graph_file(fname):
             outfile.write(node + '\t' + ';'.join(nbs) + '\n')
 
 
+def read_pickle(fpath):
+    with open(fpath, 'rb') as infile:
+        obj = pickle.load(infile)
+    return obj
+
+
+def url_escape(title):
+    # return title.replace("\\'", "%27")\
+    #             .replace('\\"', '%22')\
+    #             .replace('\\%', '%25')\
+    #             .replace('\\\\', '%5C')\
+    #             .replace(u'\u2013', '%E2%80%93')
+    title = title.replace("\\'", "'")\
+                    .replace('\\"', '"')\
+                    .replace('\\_', '_')\
+                    .replace('\\%', '%')\
+                    .replace('\\\\', '\\')
+    title = urllib.quote(title.encode('utf-8'))
+
+    # unquote a few chars back because they appear in Wikipedia
+    for quoted, unquoted in [
+        ('%21', '!'),
+        ('%22', '"'),
+        # ('%23', '#'),
+        ('%24', '$'),
+        ('%25', '%'),
+        ('%26', '&'),
+        # ('%27', "'"),
+        ('%28', '('),
+        ('%29', ')'),
+        ('%2A', '*'),
+        # ('%2B', '+'),
+        ('%2C', ','),
+        ('%2D', '-'),
+        ('%2E', '.'),
+        ('%2F', '/'),
+        ('%3A', ':'),
+        ('%3B', ';'),
+        ('%3C', '<'),
+        ('%3D', '='),
+        ('%3E', '>'),
+        ('%3F', '?'),
+        ('%40', '@'),
+    ]:
+        title = title.replace(quoted, unquoted)
+
+    return title
+
+
 def get_id_dict(data_dir, wiki_name, dump_date):
     id2title = {}
     fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-page.sql')
@@ -349,14 +399,55 @@ def get_id_dict(data_dir, wiki_name, dump_date):
             lidx += 1
             if not line.startswith('INSERT'):
                 continue
+            # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
+            matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
+            for page_id, page_namespace, page_title in matches:
+                if page_namespace != '0':
+                    continue
+                id2title[int(page_id)] = url_escape(page_title)
+
+        with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
+            pickle.dump(id2title, outfile, -1)
+
+
+def get_redirect_dict(data_dir, wiki_name, dump_date):
+    id2redirect = {}
+    fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-redirect.sql')
+    with io.open(fname, encoding='utf-8') as infile:
+        lidx = 1
+        for line in infile:
+            print(lidx, end='\r')
+            lidx += 1
+            if not line.startswith('INSERT'):
+                continue
             matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
             for page_id, page_namespace, page_title in matches:
                 if page_namespace != '0':
                     continue
-                id2title[int(page_id)] = page_title
+                id2redirect[int(page_id)] = url_escape(page_title)
 
-        with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
-            pickle.dump(id2title, outfile, -1)
+        with open(os.path.join(data_dir, 'id2redirect.obj'), 'wb') as outfile:
+            pickle.dump(id2redirect, outfile, -1)
+
+
+def get_resolved_redirects(data_dir):
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+    title2id = {v: k for k, v in id2title.iteritems()}
+    id2redirect = read_pickle(os.path.join(data_dir, 'id2redirect.obj'))
+
+    title2redirect = {}
+    idx = 1
+    length = len(id2redirect)
+    for k, v in id2redirect.iteritems():
+        print(idx, '/', length, end='\r')
+        idx += 1
+        try:
+            title2redirect[id2title[k]] = title2id[v]
+        except KeyError:
+            pass
+
+    with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
+        pickle.dump(title2redirect, outfile, -1)
 
 
 if __name__ == '__main__':
