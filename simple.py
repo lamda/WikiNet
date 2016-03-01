@@ -10,13 +10,10 @@ except ImportError:
     pass
 import HTMLParser
 import io
+import json
 import os
 import pdb
 import re
-import urllib2
-
-import numpy as np
-import pandas as pd
 
 from main import debug_iter, get_id_dict
 from crawler import Crawler
@@ -26,15 +23,16 @@ WIKI_NAME = 'simplewiki'
 WIKI_CODE = 'simple'
 DUMP_DATE = '20160203'
 
-# set a few options
-pd.options.mode.chained_assignment = None
-pd.set_option('display.width', 1000)
-url_opener = urllib2.build_opener()
+
+def read_pickle(fpath):
+    with open(fpath, 'rb') as infile:
+        obj = pickle.load(infile)
+    return obj
 
 
-def get_redirect_dict():
+def get_redirect_dict(data_dir, wiki_name, dump_date):
     id2redirect = {}
-    fname = os.path.join(DATA_DIR, WIKI_NAME + '-' + DUMP_DATE + '-redirect.sql')
+    fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-redirect.sql')
     with io.open(fname, encoding='utf-8') as infile:
         lidx = 1
         for line in infile:
@@ -48,14 +46,14 @@ def get_redirect_dict():
                     continue
                 id2redirect[int(page_id)] = page_title
 
-        with open(os.path.join(DATA_DIR, 'id2redirect.obj'), 'wb') as outfile:
+        with open(os.path.join(data_dir, 'id2redirect.obj'), 'wb') as outfile:
             pickle.dump(id2redirect, outfile, -1)
 
 
-def resolve_redirects():
-    id2title = pd.read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
+def resolve_redirects(data_dir):
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.iteritems()}
-    id2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'id2redirect.obj'))
+    id2redirect = read_pickle(os.path.join(data_dir, 'id2redirect.obj'))
 
     title2redirect = {}
     idx = 1
@@ -68,155 +66,157 @@ def resolve_redirects():
         except KeyError:
             pass
 
-    with open(os.path.join(DATA_DIR, 'title2redirect.obj'), 'wb') as outfile:
+    with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
         pickle.dump(title2redirect, outfile, -1)
 
 
-def crawl():
-    with open(os.path.join(DATA_DIR, 'id2title.obj'), 'rb') as infile:
+def crawl(data_dir, wiki_name, wiki_code, dump_date):
+    with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
         id2title = pickle.load(infile)
-    pids = sorted(id2title)[:10]
-    c = Crawler(WIKI_NAME, WIKI_CODE, DATA_DIR, DUMP_DATE, pids)
-
-def get_wiki_pages(titles):
-    for i, title in enumerate(titles):
-        print(i+1, '/', len(titles))
-        path = os.path.join('wp', title[0].lower())
-        if not os.path.exists(path):
-                os.makedirs(path)
-        if os.path.isfile(os.path.join(path, title + '.htm')):
-            print('present')
-            continue
-        url = 'http://' + WIKI_CODE + '.wikipedia.org/wiki/' + title
-        data = ''
-        try:
-            request = urllib2.Request(url)
-            data = url_opener.open(request).read()
-            data = data.decode('utf-8', 'ignore')
-        except (urllib2.HTTPError, urllib2.URLError) as e:
-            print('!+!+!+!+!+!+!+!+ URLLIB ERROR !+!+!+!+!+!+!+!+')
-            print('URLError', e, title)
-            continue
-        with io.open(os.path.join(path, title + '.htm'), 'w', encoding='utf-8') \
-                as outfile:
-            outfile.write(data)
+    pids = sorted(id2title)
+    Crawler(wiki_name, wiki_code, data_dir, dump_date, pids)
 
 
-def compute_link_positions(titles):
-    print('computing link positions...')
+class WikipediaHTMLParser(HTMLParser.HTMLParser):
+    def __init__(self, debug=False):
+        HTMLParser.HTMLParser.__init__(self)
+        self.fed = []
+        self.tracking_link = False
+        self.parentheses_counter = 0
+        self.first_link_found = False
+        self.tracking_div = 0
+        self.div_counter = 0
+        self.table_counter = 0
+        self.tracking_table = 0
+        self.debug = debug
+        self.debug_found = False
 
-    class MLStripper(HTMLParser.HTMLParser):
-        def __init__(self):
-            HTMLParser.HTMLParser.__init__(self)
-            self.reset()
-            self.fed = []
+    def reset(self):
+        self.fed = []
+        self.tracking_link = False
+        self.parentheses_counter = 0
+        self.first_link_found = False
+        self.tracking_div = 0
+        self.div_counter = 0
+        self.table_counter = 0
+        self.tracking_table = 0
+        self.debug_found = False
+        HTMLParser.HTMLParser.reset(self)
 
-        def handle_data(self, d):
-            self.fed.append(d)
+    def feed(self, data):
+        self.reset()
+        HTMLParser.HTMLParser.feed(self, data)
 
-        def get_data(self):
-            return ''.join(self.fed)
+    def handle_starttag(self, tag, attrs):
+        # if self.debug and tag == 'a' and\
+        #     'Extraso' in ' '.join([a[1] for a in attrs]):
+        #     print('    -->', self.parentheses_counter)
+        #     print('    -->', self.tracking_table, self.table_counter,
+        #           self.tracking_div, self.div_counter)
+        #     pdb.set_trace()
 
-        def reset(self):
-            self.fed = []
-            HTMLParser.HTMLParser.reset(self)
+        if (tag == 'a' and self.div_counter == 0 and self.table_counter == 0)\
+                and (self.parentheses_counter == 0 or self.first_link_found):
+            if self.debug:
+                print('a, 0', tag, attrs)
+            href = [a[1] for a in attrs if a[0] == 'href']
+            # if href and href[0].startswith('/wiki/'):
+            if href and href[0].startswith('../../wp/'):
+                self.fed.append(
+                    href[0].split('/')[-1].split('#')[0].rsplit('.', 1)[0]
+                )
+                self.tracking_link = True
+                self.first_link_found = True
 
-    parser = MLStripper()
-    link_regex = re.compile(('(<a href="/wiki/(.+?)" title="[^"]+?[^>]+?">.+?</a>)'))
-    folder = 'wp'
-    link2pos_first, link2pos_last, pos2link, pos2linklength = {}, {}, {}, {}
-    length, ib_length, lead_length = {}, {}, {}
-    for i, a in enumerate(titles):
-        print(unicode(i+1), '/', unicode(len(titles)), end='\r')
-        lpos_first, lpos_last, posl, posll = {}, {}, {}, {}
-        fname = os.path.join(folder, a[0].lower(), a + '.htm')
-        try:
-            with io.open(fname, encoding='utf-8') as infile:
-                data = infile.read()
-        except UnicodeDecodeError:
-            # there exist decoding errors for a few irrelevant pages
-            print(fname)
-            continue
-        data = data.split('<div id="mw-content-text" lang="en" dir="ltr" class="mw-content-ltr">')[1]
-        data = data.split('<div id="mw-navigation">')[0]
-        regex_results = link_regex.findall(data)
-        regex_results = [(r[0], r[1]) for r in regex_results]
-        for link in regex_results:
-            link = [l for l in link if l]
-            data = data.replace(link[0], ' [['+link[1]+']] ')
+        elif tag == 'div':
+            if self.debug:
+                print('div OPEN', tag, attrs)
+            aclass = [a[1] for a in attrs if a[0] == 'class']
+            if aclass and 'thumb tright' in aclass[0]:
+                self.tracking_div += 1
+            if self.tracking_div:
+                self.div_counter += 1
 
-        # find infobox
-        # if '<table' in data[:500]:
-        #     idx = data.find('</table>')
-        #     data = data[:idx] + ' [[[ENDIB]]] ' + data[idx:]
-        # else:
-        #     data = ' [[[ENDIB]]] ' + data
+        elif tag == 'table':
+            if self.debug:
+                print('table OPEN', tag, attrs)
+            # aclass = [a[1] for a in attrs if a[0] == 'class']
+            # if aclass and 'infobox' in aclass[0]:
+            #     self.tracking_table += 1
+            self.tracking_table += 1
+            if self.tracking_table:
+                self.table_counter += 1
 
-        # find lead
-        idx = data.find('<span class="mw-headline"')
-        if idx == -1:
-            data += ' [[[ENDLEAD]]] '
-        else:
-            data = data[:idx] + ' [[[ENDLEAD]]] ' + data[idx:]
+    def handle_endtag(self, tag):
+        if tag == 'a' and self.tracking_link:
+            self.tracking_link = False
+        elif tag == 'div':
+            if self.debug:
+                print('div CLOSE')
+            if self.tracking_div > 0:
+                self.div_counter -= 1
+                if self.div_counter == 0:
+                    self.tracking_div = min(0, self.tracking_div-1)
+        elif tag == 'table':
+            if self.debug:
+                print('table CLOSE')
+            if self.tracking_table > 0:
+                self.table_counter -= 1
+                if self.table_counter == 0:
+                    self.tracking_table = min(0, self.tracking_table-1)
 
-        data = [d.strip() for d in data.splitlines()]
-        data = [d for d in data if d]
-        text = []
-        for d in data:
-            parser.reset()
-            parser.feed(parser.unescape(d))
-            stripped_d = parser.get_data()
-            if stripped_d:
-                text.append(stripped_d)
-        text = ' '.join(text)
-        text = text.replace(']][[', ']] [[')
-        words = (re.split(': |\. |, |\? |! |\n | |\(|\)', text))
-        words = [wo for wo in words if wo]
-
-        idx = words.index('[[[ENDLEAD]]]')
-        lead_length[a] = idx
-        del words[idx]
-
-        # idx = words.index('[[[ENDIB]]]')
-        # ib_length[a] = idx
-        # del words[idx]
-
-        # for wi, word in enumerate(reversed(words)):
-        #     if word.startswith('[['):
-        #         try:
-        #             aid = title2id[word[2:-2].replace('%25', '%')]
-        #             lpos_first[aid] = len(words) - wi - 1
-        #         except KeyError:
-        #           pass
-
-        for wi, word in enumerate(words):
-            if word.startswith('[['):
-                try:
-                    aid = title2id[word[2:-2].replace('%25', '%')]
-                    posl[wi] = aid
-                except KeyError:
-                    try:
-                        aid = title2id[title2redirect[word[2:-2].replace('%25', '%')]]
-                        posl[wi] = aid
-                    except KeyError:
-                        pass
-        pos2link[a] = posl
-        length[a] = len(words)
-        # for k in sorted(pos2link[a]):
-        #     print(k, id2title[pos2link[a][k]])
+    def handle_data(self, d):
+        # if not self.tracking_link:
+        #     d = d.strip('\t\x0b\x0c\r ')
+        #     if d:
+        #         self.fed.append(d + ' ')
+        # d = d.strip('\t\x0b\x0c\r \n')
+        # if not d:
+        #     return
+        # print(d)
         # pdb.set_trace()
-    path = os.path.join('link_positions.obj')
-    with open(path, 'wb') as outfile:
-        pickle.dump([pos2link, lead_length], outfile, -1)
+        if self.tracking_div or self.tracking_table:
+            return
+        par_diff = d.count('(') - d.count(')')
+        self.parentheses_counter += par_diff
+        # if self.parentheses_counter > 0:
+        #     print(self.parentheses_counter, d)
+        # if 'Notable' in d:
+        #     self.debug_found = True
+        # if self.debug_found:
+        #     print(self.parentheses_counter, d)
+        # print(self.parentheses_counter, d)
+
+    def get_data(self):
+        return self.fed
 
 
-def get_local_titles():
-    folders = os.listdir('wp')
-    titles = []
-    for folder in folders:
-        path = os.path.join('wp', folder)
-        titles += [f.split('.htm')[0] for f in os.listdir(path)]
-    return titles
+def article_generator(data_dir, offset=0, start=None, limit=None):
+    # get file ids
+    with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
+        id2title = pickle.load(infile)
+    pids = sorted(id2title)
+
+    # extract first link that is not in italics or in parentheses
+    counter = 0
+    for pid in pids:
+        if pid == start:
+            start = None
+        if counter < offset or start is not None:
+            counter += 1
+            continue
+        if limit and counter > limit:
+            break
+        pid_u = unicode(pid)
+        fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
+        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
+            data = json.load(infile)
+            try:
+                json_data = data['query']['pages'][pid_u]['revisions'][0]['*']
+                yield id2title[pid], pid_u, json_data
+            except KeyError:
+                print('yielding None')
+                yield None, None, None
 
 
 if __name__ == '__main__':
@@ -224,34 +224,21 @@ if __name__ == '__main__':
     # get_redirect_dict()
     # resolve_redirects()
 
-    # id2title = pd.read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
-    # title2id = {v: k for k, v in id2title.iteritems()}
-    # id2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'id2redirect.obj'))
-    # title2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'title2redirect.obj'))
+    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
 
-    crawl()
+    # extract the first 20 links
+    title2links = {}
+    parser = WikipediaHTMLParser(debug=False)
+    # parser = WikipediaHTMLParser(debug=True)
+    for idx, (title, pid, html) in enumerate(article_generator(DATA_DIR)):
+        print(title)
+        parser.feed(html)
+        links = parser.get_data()[:20]
+        links = [l.replace('%25', '%') for l in links]  # fix double % encoding
+        pdb.set_trace()
 
-    # get_wiki_pages(titles)
-    # titles = get_titles()
-    # titles = [t for t in titles if '%' not in t]
-    # titles = [t for t in titles if '__' not in t]
-    # # compute_link_positions(titles)
-    #
-    # # analyze_clicks(titles, split_type='first')
-    #
-    # results = pd.read_pickle('results_first.obj')
-    # # pdb.set_trace()
-    # data = []
-    # for lead, rest in results.values():
-    #     total = lead + rest
-    #     if total:
-    #         data.append(lead / total)
-    #
-    # print(np.mean(data), np.median(data))
-
-
-
-
-
-
-
+    with io.open(os.path.join(DATA_DIR, 'top20links.tsv'), 'w',
+                 encoding='utf-8') as outfile:
+        for k in sorted(title2links):
+            u_links = [unicode(l) for l in title2links[k]]
+            outfile.write(unicode(k) + '\t' + ';'.join(u_links) + '\n')

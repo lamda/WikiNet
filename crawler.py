@@ -29,6 +29,7 @@ class Crawler(object):
         self.titles = set()
         print(len(pids), 'pids total')
         print(len(self.pids), 'files to download')
+        self.no_crawlers = 50
         self.crawl_twisted_ids()
 
     def crawl_twisted_ids(self):
@@ -52,7 +53,7 @@ class Crawler(object):
 
         print('downloading', len(self.pids), 'files...')
         log.startLogging(Logger(), setStdout=0)
-        finished = parallel(self.pids, 25, download)
+        finished = parallel(self.pids, self.no_crawlers, download)
         finished.addErrback(log.err)
         finished.addCallback(lambda ign: reactor.stop())
         reactor.run()
