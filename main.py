@@ -38,8 +38,7 @@ class Graph(object):
             os.makedirs(self.stats_folder)
         self.use_sample = use_sample
         self.graph_name = fname if not use_sample else fname + '_sample'
-        self.graph_file_path = os.path.join(DATA_DIR,
-                                            self.graph_name + '.tsv')
+        self.graph_file_path = os.path.join(DATA_DIR, self.graph_name + '.tsv')
         self.N = N
         self.gt_file_path = os.path.join(
             DATA_DIR,
@@ -54,38 +53,39 @@ class Graph(object):
         lbd_add = lambda: self.graph.add_vertex()
         self.name2node = collections.defaultdict(lbd_add)
 
-    def load_graph(self, graph=None, refresh=False):
-        if graph is not None:
-            self.graph = graph
-            print('graph set directly')
-        elif refresh:
+    def load_graph(self, refresh=False):
+        if refresh:
             self.load_from_adjacency_list()
             self.save()
             print('graph loaded from adjacency list')
         else:
             try:
-                self.load_from_file()
+                self.graph = gt.load_graph(self.gt_file_path, fmt='gt')
                 print('graph loaded from .gt file')
             except IOError:
                 self.load_from_adjacency_list()
                 self.save()
                 print('graph loaded from adjacency list')
 
-    def load_from_file(self):
-        self.graph = gt.load_graph(self.gt_file_path, fmt='gt')
-
-    def get_recommenders_from_adjacency_list(self):
-        recommenders = set()
+    def load_from_adjacency_list(self):
+        self.load_nodes_from_adjacency_list()
+        print('\nloading edges...')
+        edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
-            for index, line in enumerate(infile):
-                recommenders.add(line.strip().split('\t')[0])
-        return recommenders
+            for line in debug_iter(infile):
+                node, nbs = line.strip().split('\t')
+                nbs = nbs.split(';')[:self.N]
+                v = self.graph.vertex_index[self.name2node[node]]
+                edges += [(v, self.graph.vertex_index[self.name2node[n]])
+                          for n in nbs]
+        self.graph.add_edge_list(edges)
+        self.load_titles()
 
     def load_nodes_from_adjacency_list(self):
         print('\ngetting all nodes...')
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
-            for line in debug_iter(infile, 15791883):
+            for line in debug_iter(infile):
                 node, nbs = line.strip().split('\t')
                 nbs = nbs.split(';')[:self.N]
                 nodes.add(node)
@@ -97,22 +97,8 @@ class Graph(object):
             self.names[v] = node
         self.graph.vp['name'] = self.names
 
-    def load_from_adjacency_list(self):
-        self.load_nodes_from_adjacency_list()
-        print('\nloading edges...')
-        edges = []
-        with io.open(self.graph_file_path, encoding='utf-8') as infile:
-            for line in debug_iter(infile, 15791883):
-                node, nbs = line.strip().split('\t')
-                nbs = nbs.split(';')[:self.N]
-                v = self.graph.vertex_index[self.name2node[node]]
-                edges += [(v, self.graph.vertex_index[self.name2node[n]])
-                          for n in nbs]
-        self.graph.add_edge_list(edges)
-        self.load_titles()
-
     def load_titles(self):
-        print('loading titles for the English Wikipedia...')
+        print('loading titles...')
         # load id2title dict
         with open(os.path.join(DATA_DIR, 'id2title.obj'), 'rb') as infile:
             id2title = pickle.load(infile)
@@ -191,6 +177,13 @@ class Graph(object):
         print('     %.2f average out-degree' % outdegree_av)
         return graph_size, recommenders, outdegree_av
 
+    def get_recommenders_from_adjacency_list(self):
+        recommenders = set()
+        with io.open(self.graph_file_path, encoding='utf-8') as infile:
+            for index, line in enumerate(infile):
+                recommenders.add(line.strip().split('\t')[0])
+        return recommenders
+
     def clustering_coefficient(self, minimal_neighbors=2):
         print('clustering_coefficient()')
         clustering_coefficient = 0
@@ -219,15 +212,27 @@ class Graph(object):
         for node, comp in enumerate(component.a):
             comp2verts[comp].append(node)
         comp2verts = {k: v for k, v in comp2verts.items() if len(v) > 1}
+        singles = self.graph.num_vertices() -\
+                  sum(len(i) for i in comp2verts.items())
 
-        # https://graph-tool.skewed.de/static/doc/topology.html#graph_tool.topology.label_components
         # get all components with at least two vertices
         comps = []
         for comp, verts in comp2verts.items():
             comps.append(verts)
         comps.sort(key=len)
 
-        return comps
+        # get the sizes of the incomponents associated with each component
+        incomps = []
+        graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
+        for comp in comps:
+            comp_node = random.sample(comp, 1)[0]
+            incomps.append(
+                np.count_nonzero(
+                    gt.label_out_component(graph_reversed, comp_node).a
+                )
+            )
+
+        return singles, comps, incomps
 
     def bow_tie(self):
         print('bow tie')
@@ -241,7 +246,7 @@ class Graph(object):
         all_nodes = set(int(n) for n in self.graph.vertices())
         scc = set([int(n) for n in lcp.vertices()])
         scc_node = random.sample(scc, 1)[0]
-        graph_reversed = gt.GraphView(self.graph, reversed=True)
+        graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
 
         outc = np.nonzero(gt.label_out_component(self.graph, scc_node).a)[0]
         inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
