@@ -98,7 +98,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             # if href and href[0].startswith('/wiki/'):
             if href and href[0].startswith('../../wp/'):
                 self.fed.append(
-                    href[0].split('/')[-1].split('#')[0].rsplit('.')[0]
+                    href[0].split('/')[-1].split('#')[0].rsplit('.', 1)[0]
                 )
                 self.tracking_link = True
                 self.first_link_found = True
@@ -170,26 +170,26 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    title2id = get_title2id()
-    title2links = {}
-    parser = WikipediaHTMLParser(debug=False)
-    # parser = WikipediaHTMLParser(debug=True)
-    for idx, (title, html) in enumerate(article_generator()):
-        print(title)
-        parser.feed(html)
-        links = parser.get_data()[:20]
-        pdb.set_trace()
-        # TODO: problem is 'D%25C3%25A1l_Riata' (usage in articles) vs 'D%C3%A1l_Riata' (usage in article list)
-        title2links[title2id[title]] = [title2id[l] for l in links]
+    # title2id = get_title2id()
+    # title2links = {}
+    # parser = WikipediaHTMLParser(debug=False)
+    # # parser = WikipediaHTMLParser(debug=True)
+    # for idx, (title, html) in enumerate(article_generator()):
+    #     print(title)
+    #     parser.feed(html)
+    #     links = parser.get_data()[:20]
+    #     links = [l.replace('%25', '%') for l in links]  # fix double % encoding
+    #     title2links[title2id[title]] = [title2id[l] for l in links]
+    #
+    # with io.open(os.path.join(DATA_DIR, 'top20links.tsv'), 'w',
+    #              encoding='utf-8') as outfile:
+    #     for k in sorted(title2links):
+    #         u_links = [unicode(l) for l in title2links[k]]
+    #         outfile.write(unicode(k) + '\t' + ';'.join(u_links) + '\n')
 
-    with io.open(os.path.join(DATA_DIR, 'top1links.tsv'), 'w',
-                 encoding='utf-8') as outfile:
-        for k in sorted(title2links):
-            outfile.write(k + '\t' + ';'.join(title2links[k]) + '\n')
-
-    # from main import Graph
-    # g = Graph(fname='top20links.tsv', use_sample=False, refresh=False, N=1)
-    # g.load_graph(refresh=False)
+    from main import Graph
+    g = Graph(fname='top20links.tsv', use_sample=False, refresh=False, N=1)
+    g.load_graph(refresh=False)
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

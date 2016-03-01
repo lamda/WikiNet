@@ -30,18 +30,19 @@ def debug_iter(iterable, length=None):
 
 
 class Graph(object):
-    def __init__(self, fname='', N=None, use_sample=False,
+    def __init__(self, data_dir, fname='', N=None, use_sample=False,
                  refresh=False, suffix=''):
         print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
-        self.stats_folder = os.path.join(DATA_DIR, 'stats')
+        self.data_dir = data_dir
+        self.stats_folder = os.path.join(self.data_dir, 'stats')
         if not os.path.exists(self.stats_folder):
             os.makedirs(self.stats_folder)
         self.use_sample = use_sample
         self.graph_name = fname if not use_sample else fname + '_sample'
-        self.graph_file_path = os.path.join(DATA_DIR, self.graph_name + '.tsv')
+        self.graph_file_path = os.path.join(self.data_dir, self.graph_name + '.tsv')
         self.N = N
         self.gt_file_path = os.path.join(
-            DATA_DIR,
+            self.data_dir,
             self.graph_name + '_' + str(self.N) + suffix + '.gt'
         )
         self.stats_file_path = os.path.join(
@@ -100,7 +101,7 @@ class Graph(object):
     def load_titles(self):
         print('loading titles...')
         # load id2title dict
-        with open(os.path.join(DATA_DIR, 'id2title.obj'), 'rb') as infile:
+        with open(os.path.join(self.data_dir, 'id2title.obj'), 'rb') as infile:
             id2title = pickle.load(infile)
 
         # assign titles as a vertex property
