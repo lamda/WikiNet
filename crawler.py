@@ -24,7 +24,7 @@ class Crawler(object):
         if not os.path.exists(self.html_dir):
             os.makedirs(self.html_dir)
         file_ids = set(f[:-4] for f in os.listdir(self.html_dir))
-        self.pids = pids - file_ids
+        self.pids = sorted(set(map(unicode, pids)) - file_ids)
         self.pids = random.sample(self.pids, limit) if limit else self.pids
         self.titles = set()
         print(len(pids), 'pids total')
