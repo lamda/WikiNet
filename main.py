@@ -338,9 +338,9 @@ def convert_graph_file(fname):
             outfile.write(node + '\t' + ';'.join(nbs) + '\n')
 
 
-def get_id_dict():
+def get_id_dict(data_dir, wiki_name, dump_date):
     id2title = {}
-    fname = os.path.join(DATA_DIR, WIKI_NAME + '-' + DUMP_DATE + '-page.sql')
+    fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-page.sql')
     with io.open(fname, encoding='utf-8') as infile:
         lidx = 1
         for line in infile:
@@ -354,7 +354,7 @@ def get_id_dict():
                     continue
                 id2title[int(page_id)] = page_title
 
-        with open(os.path.join(DATA_DIR, 'id2title.obj'), 'wb') as outfile:
+        with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
             pickle.dump(id2title, outfile, -1)
 
 

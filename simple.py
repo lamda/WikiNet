@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from main import debug_iter, get_id_dict
+from crawler import Crawler
 
 DATA_DIR = 'simplewiki'
 WIKI_NAME = 'simplewiki'
@@ -70,6 +71,12 @@ def resolve_redirects():
     with open(os.path.join(DATA_DIR, 'title2redirect.obj'), 'wb') as outfile:
         pickle.dump(title2redirect, outfile, -1)
 
+
+def crawl():
+    with open(os.path.join(DATA_DIR, 'id2title.obj'), 'rb') as infile:
+        id2title = pickle.load(infile)
+    pids = sorted(id2title)[:10]
+    c = Crawler(WIKI_NAME, WIKI_CODE, DATA_DIR, DUMP_DATE, pids)
 
 def get_wiki_pages(titles):
     for i, title in enumerate(titles):
@@ -213,21 +220,16 @@ def get_local_titles():
 
 
 if __name__ == '__main__':
-    # get_id_dict()
+    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
     # get_redirect_dict()
     # resolve_redirects()
 
-    id2title = pd.read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
-    title2id = {v: k for k, v in id2title.iteritems()}
-    id2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'id2redirect.obj'))
-    title2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'title2redirect.obj'))
-    pdb.set_trace()
+    # id2title = pd.read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
+    # title2id = {v: k for k, v in id2title.iteritems()}
+    # id2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'id2redirect.obj'))
+    # title2redirect = pd.read_pickle(os.path.join(DATA_DIR, 'title2redirect.obj'))
 
-    # with io.open('titles.txt', encoding='utf-8') as infile:
-    #     titles = infile.read()
-    #
-    # titles = titles.splitlines()
-    # titles = [t for t in titles if '%' not in t]
+    crawl()
 
     # get_wiki_pages(titles)
     # titles = get_titles()
