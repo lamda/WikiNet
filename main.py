@@ -159,8 +159,8 @@ def get_resolved_redirects(data_dir):
 
 
 class Graph(object):
-    def __init__(self, data_dir, fname='', N=None, use_sample=False,
-                 refresh=False, suffix=''):
+    def __init__(self, data_dir, fname='', use_sample=False,
+                 refresh=False, suffix='', N=None):
         print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
         self.data_dir = data_dir
         self.stats_folder = os.path.join(self.data_dir, 'stats')
@@ -461,11 +461,11 @@ if __name__ == '__main__':
     # convert_graph_file('recommender_network_top20links_original.tsv')
     # get_id_dict()
 
-    g = Graph(fname='recommender_network_top20links',
+    g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
               use_sample=False, refresh=False, N=1)
     g.load_graph(refresh=False)
-    # g.compute_stats()
-    # g.print_stats()
+    g.compute_stats()
+    g.print_stats()
     # g.update_stats()
 
     end_time = datetime.now()
