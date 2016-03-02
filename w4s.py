@@ -188,7 +188,8 @@ if __name__ == '__main__':
     #         outfile.write(unicode(k) + '\t' + ';'.join(u_links) + '\n')
 
     from main import Graph
-    g = Graph(fname='top20links.tsv', use_sample=False, refresh=False, N=1)
+    g = Graph(data_dir=DATA_DIR, fname='top20links',
+              use_sample=False, refresh=False, N=1)
     g.load_graph(refresh=False)
 
     end_time = datetime.now()

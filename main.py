@@ -203,10 +203,12 @@ class Graph(object):
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, nbs = line.strip().split('\t')
-                nbs = nbs.split(';')[:self.N]
+                parts = line.strip().split('\t')
+                node = parts[0]
                 nodes.add(node)
-                nodes.update(nbs)
+                if len(parts) > 1:
+                    nbs = parts[1].split(';')[:self.N]
+                    nodes.update(nbs)
 
         print('\nadding nodes to graph...')
         for node in debug_iter(nodes, len(nodes)):
@@ -218,11 +220,12 @@ class Graph(object):
         edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, nbs = line.strip().split('\t')
-                nbs = nbs.split(';')[:self.N]
-                v = self.graph.vertex_index[self.name2node[node]]
-                edges += [(v, self.graph.vertex_index[self.name2node[n]])
-                          for n in nbs]
+                parts = line.strip().split('\t')
+                if len(parts) > 1:
+                    v = self.graph.vertex_index[self.name2node[parts[0]]]
+                    nbs = parts[1].split(';')[:self.N]
+                    edges += [(v, self.graph.vertex_index[self.name2node[n]])
+                              for n in nbs]
         self.graph.add_edge_list(edges)
 
         print('loading titles...')
