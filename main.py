@@ -8,6 +8,7 @@ try:
     import graph_tool.all as gt
 except ImportError:
     pass
+import json
 import io
 import numpy as np
 import os
@@ -64,7 +65,8 @@ def url_escape(title):
                     .replace('\\"', '"')\
                     .replace('\\_', '_')\
                     .replace('\\%', '%')\
-                    .replace('\\\\', '\\')
+                    .replace('\\\\', '\\')\
+                    .replace(' ', '_')
     title = urllib.quote(title.encode('utf-8'))
 
     # unquote a few chars back because they appear in Wikipedia
@@ -128,7 +130,8 @@ def get_redirect_dict(data_dir, wiki_name, dump_date):
             lidx += 1
             if not line.startswith('INSERT'):
                 continue
-            matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
+            # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
+            matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
             for page_id, page_namespace, page_title in matches:
                 if page_namespace != '0':
                     continue
@@ -139,23 +142,47 @@ def get_redirect_dict(data_dir, wiki_name, dump_date):
 
 
 def get_resolved_redirects(data_dir):
-    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
-    title2id = {v: k for k, v in id2title.iteritems()}
-    id2redirect = read_pickle(os.path.join(data_dir, 'id2redirect.obj'))
+    # id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+    # title2id = {v: k for k, v in id2title.iteritems()}
+    # id2redirect = read_pickle(os.path.join(data_dir, 'id2redirect.obj'))
+    #
+    # title2redirect = {}
+    # idx = 1
+    # length = len(id2redirect)
+    # for k, v in id2redirect.iteritems():
+    #     print(idx, '/', length, end='\r')
+    #     idx += 1
+    #     try:
+    #         title2redirect[id2title[k]] = title2id[v]
+    #     except KeyError:
+    #         pass
+    # with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
+    #     pickle.dump(title2redirect, outfile, -1)
 
+    damaged = []
     title2redirect = {}
-    idx = 1
-    length = len(id2redirect)
-    for k, v in id2redirect.iteritems():
-        print(idx, '/', length, end='\r')
-        idx += 1
-        try:
-            title2redirect[id2title[k]] = title2id[v]
-        except KeyError:
-            pass
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+    for pid in debug_iter(id2title):
+        pid_u = unicode(pid)
+        fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
+        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
+            try:
+                data = json.load(infile)
+                rd_from = data['query']['redirects'][0]['from']
+                rd_to = data['query']['redirects'][0]['to']
+                title2redirect[url_escape(rd_from)] = url_escape(rd_to)
+            except KeyError:
+                continue
+            except ValueError:
+                print(pid)
+                damaged.append(pid)
 
-    with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
-        pickle.dump(title2redirect, outfile, -1)
+    if damaged:
+        for d in damaged:
+            print(d)
+    else:
+        with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
+            pickle.dump(title2redirect, outfile, -1)
 
 
 class Graph(object):

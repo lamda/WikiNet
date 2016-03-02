@@ -15,7 +15,8 @@ from twisted.web import client
 
 
 class Crawler(object):
-    def __init__(self, label, wiki_code, data_dir, dump_date, pids, limit=None):
+    def __init__(self, label, wiki_code, data_dir, dump_date, pids, limit=None,
+                 replace=False):
         self.wiki_code = wiki_code
         self.dump_date = dump_date
         self.label = label
@@ -23,9 +24,13 @@ class Crawler(object):
         self.html_dir = os.path.join(self.data_dir, 'html')
         if not os.path.exists(self.html_dir):
             os.makedirs(self.html_dir)
-        file_ids = set(f[:-4] for f in os.listdir(self.html_dir))
-        self.pids = sorted(set(map(unicode, pids)) - file_ids)
-        self.pids = random.sample(self.pids, limit) if limit else self.pids
+        if replace:
+            self.pids = pids
+        else:
+            file_ids = set(f[:-4] for f in os.listdir(self.html_dir))
+            self.pids = sorted(set(map(unicode, pids)) - file_ids)
+            self.pids = random.sample(self.pids, limit) if limit else self.pids
+        self.pids = map(unicode, self.pids)
         self.titles = set()
         print(len(pids), 'pids total')
         print(len(self.pids), 'files to download')
@@ -48,6 +53,7 @@ class Crawler(object):
                   '&prop=revisions|categories&continue' \
                   '&pageids=%s&action=query&rvprop=content&rvparse' \
                   '&cllimit=500&clshow=!hidden&redirects=True'
+            print(url % pid)
             path = os.path.join(self.html_dir, pid + '.txt')
             return client.downloadPage(str(url % pid), path)
 
