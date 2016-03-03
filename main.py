@@ -11,6 +11,7 @@ except ImportError:
 import json
 import io
 import numpy as np
+import operator
 import os
 import pdb
 import random
@@ -283,7 +284,7 @@ class Graph(object):
         # assign titles as a vertex property
         vp_title = self.graph.new_vertex_property('string')
         for vertex in self.graph.vertices():
-            vp_title[self.graph.vertex(vertex)] = id2title[vertex]
+            vp_title[self.graph.vertex(vertex)] = id2title[int(self.graph.vp['name'][vertex])]
         self.graph.vp['title'] = vp_title
         self.save()
 
@@ -296,8 +297,7 @@ class Graph(object):
         data = self.basic_stats()
         stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
         # stats['cc'] = self.clustering_coefficient()
-        data = self.largest_component()
-        stats['singles'], stats['comp_names'], stats['incomps'] = data
+        stats['singles'], stats['comp_stats'] = self.largest_component()
         # stats['bow_tie'] = self.bow_tie()
         # stats['lc_ecc'] = self.eccentricity()
 
@@ -322,7 +322,14 @@ class Graph(object):
         with open(self.stats_file_path, 'rb') as infile:
             stats = pickle.load(infile)
         for k, v in stats.items():
+            if k in {'comp_stats', 'singles'}:
+                continue
             print(k, v)
+        print('found', stats['singles'], 'single components')
+        for comp_stat in stats['comp_stats']:
+            print('len=%d, incomp_len=%d' %
+                  (comp_stat['len'], comp_stat['incomp_size']))
+            print('    ' + ', '.join(comp_stat['names']))
 
     def basic_stats(self):
         print('basic_stats():')
@@ -377,7 +384,7 @@ class Graph(object):
         #     len(histogram),  # number of strongly connected components
         # ]
 
-        # get number of vertices per component
+        print('    get number of vertices per component')
         comp2verts = {i: list() for i in range(len(histogram))}
         for node, comp in enumerate(component.a):
             comp2verts[comp].append(node)
@@ -385,13 +392,13 @@ class Graph(object):
         singles = self.graph.num_vertices() -\
             sum(len(i) for i in comp2verts.items())
 
-        # get all components with at least two vertices
+        print('    get all components with at least two vertices')
         comps = []
         for comp, verts in comp2verts.items():
             comps.append(verts)
         comps.sort(key=len)
 
-        # get the sizes of the incomponents associated with each component
+        print('    get the sizes of the incomponents')
         incomps = []
         graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
         for comp in comps:
@@ -402,21 +409,36 @@ class Graph(object):
                 )
             )
 
-        # get the names of nodes in the components (in order)
+        print('    get the names of nodes in the components')
         comp_names = []
-        for comp in comps:
+        for cidx, comp in enumerate(comps):
+            # print('\r       ', cidx, '/', len(comps), end='')
             names = []
-            comp_node = random.sample(comp, 1)[0]
-            name_start = self.graph.vp['name'][comp_node]
-            node = None
+            node = random.sample(comp, 1)[0]
+            name_start = self.graph.vp['title'][node]
             name = ''
             while name != name_start:
-                node = comp_node.out_neighbours().next()
-                name = self.graph.vp['name'][node]
+                node = self.graph.vertex(node).out_neighbours().next()
+                name = self.graph.vp['title'][node]
+                # print(node, name)
+                # pdb.set_trace()
                 names.append(name)
             comp_names.append(names)
+        print()
 
-        return singles, comp_names, incomps
+        comp_stats = []
+        for comp, incomp_size, comp_name in zip(comps, incomps, comp_names):
+            comp_stats.append(
+                {
+                    'vertices': comp,
+                    'names': comp_name,
+                    'len': len(comp),
+                    'incomp_size': incomp_size
+                }
+            )
+        comp_stats.sort(key=operator.itemgetter('len'))
+
+        return singles, comp_stats
 
     def bow_tie(self):
         print('bow tie')
@@ -511,12 +533,12 @@ if __name__ == '__main__':
     # convert_graph_file('recommender_network_top20links_original.tsv')
     # get_id_dict()
 
-    g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
-              use_sample=False, refresh=False, N=1)
-    g.load_graph(refresh=False)
-    g.compute_stats()
-    g.print_stats()
-    # g.update_stats()
+    # g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
+    #           use_sample=False, refresh=False, N=1)
+    # g.load_graph(refresh=False)
+    # g.compute_stats()
+    # g.print_stats()
+    # # g.update_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

@@ -17,17 +17,29 @@ import pdb
 import random
 import re
 
+from main import read_pickle
+
 
 DATA_DIR = 'w4s'
 
 
-def get_title2id():
-    fpath = os.path.join('w4s', 'articles.txt')
+def get_title2id(data_dir):
+    fpath = os.path.join(data_dir, 'articles.txt')
     with io.open(fpath, encoding='utf-8') as infile:
         data = infile.read()
 
     d = {f: i for i, f in enumerate(data.splitlines())}
     return d
+
+
+def get_id2title(data_dir):
+    fpath = os.path.join(data_dir, 'articles.txt')
+    with io.open(fpath, encoding='utf-8') as infile:
+        data = infile.read()
+
+    d = {i: f for i, f in enumerate(data.splitlines())}
+    with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
+        pickle.dump(d, outfile, -1)
 
 
 def article_generator(offset=0, start=None):
@@ -170,7 +182,10 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # title2id = get_title2id()
+    # title2id = get_title2id(DATA_DIR)
+    # id2title = get_id2title(DATA_DIR)
+    # id2title = read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
+    # pdb.set_trace()
     # title2links = {}
     # parser = WikipediaHTMLParser(debug=False)
     # # parser = WikipediaHTMLParser(debug=True)
@@ -191,6 +206,8 @@ if __name__ == '__main__':
     g = Graph(data_dir=DATA_DIR, fname='top20links',
               use_sample=False, refresh=False, N=1)
     g.load_graph(refresh=False)
+    g.compute_stats()
+    g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
