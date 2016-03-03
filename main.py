@@ -326,7 +326,16 @@ class Graph(object):
                 continue
             print(k, v)
         print('found', stats['singles'], 'single components')
-        for comp_stat in stats['comp_stats']:
+
+        print('top 10 cycles by cycle length')
+        for comp_stat in stats['comp_stats'][:10]:
+            print('len=%d, incomp_len=%d' %
+                  (comp_stat['len'], comp_stat['incomp_size']))
+            print('    ' + ', '.join(comp_stat['names']))
+
+        print('\ntop 10 cycles by incomponent length')
+        stats['comp_stats'].sort(key=operator.itemgetter('incomp_size'), reverse=True)
+        for comp_stat in stats['comp_stats'][:10]:
             print('len=%d, incomp_len=%d' %
                   (comp_stat['len'], comp_stat['incomp_size']))
             print('    ' + ', '.join(comp_stat['names']))
@@ -436,7 +445,7 @@ class Graph(object):
                     'incomp_size': incomp_size
                 }
             )
-        comp_stats.sort(key=operator.itemgetter('len'))
+        comp_stats.sort(key=operator.itemgetter('len'), reverse=True)
 
         return singles, comp_stats
 

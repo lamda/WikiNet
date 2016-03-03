@@ -38,7 +38,7 @@ class Crawler(object):
         self.pids = map(unicode, self.pids)
         self.titles = set()
         print(len(self.pids), 'files to download')
-        self.no_crawlers = 50
+        self.no_crawlers = 75
         self.crawl_twisted_ids()
 
     def crawl_twisted_ids(self):
@@ -57,7 +57,7 @@ class Crawler(object):
                   '&prop=revisions|categories&continue' \
                   '&pageids=%s&action=query&rvprop=content&rvparse' \
                   '&cllimit=500&clshow=!hidden&redirects=True'
-            print(url % pid)
+            # print(url % pid)
             path = os.path.join(self.html_dir, pid + '.txt')
             return client.downloadPage(str(url % pid), path)
 
@@ -78,7 +78,8 @@ class Logger(object):
             pass
         elif 'Stopping factory' in text:
             self.counter += 1
-            print(self.counter, end='\r')
+            if (self.counter % 100) == 0:
+                print(self.counter, end='\r')
         else:
             print(text)
 
