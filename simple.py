@@ -16,7 +16,7 @@ import pdb
 import re
 
 from main import debug_iter, get_id_dict, get_redirect_dict,\
-    get_resolved_redirects, read_pickle
+    get_resolved_redirects, read_pickle, check_files
 from crawler import Crawler
 
 DATA_DIR = 'simplewiki'
@@ -25,12 +25,14 @@ WIKI_CODE = 'simple'
 DUMP_DATE = '20160203'
 
 
-def crawl(data_dir, wiki_name, wiki_code, dump_date, pids=None, replace=False):
-    if not pids:
+def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
+    if recrawl_damaged:
+        Crawler(wiki_name, wiki_code, data_dir, dump_date, recrawl_damaged=True)
+    else:
         with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
             id2title = pickle.load(infile)
         pids = sorted(id2title)
-    Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids, replace=replace)
+        Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids)
 
 
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
@@ -78,6 +80,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             'Special',
             'Media'
         }
+        file_prefixes_talk = {fp + '_talk' for fp in self.file_prefixes}
+        self.file_prefixes = self.file_prefixes | file_prefixes_talk
 
     def reset(self):
         self.found_links = 0
@@ -197,10 +201,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         return self.fed
 
 
-def article_generator(data_dir, id2title, title2id, title2redirect,
-                      start=None, stop=None):
-    # get file ids
-    pids = sorted(set(id2title.keys()) - set(title2id[t] for t in title2redirect))
+def article_generator(data_dir, pids, id2title, start=None, stop=None):
 
     pids = pids[start:stop]
     for pid in pids:
@@ -212,6 +213,8 @@ def article_generator(data_dir, id2title, title2id, title2redirect,
                 json_data = data['query']['pages'][pid_u]['revisions'][0]['*']
                 yield id2title[pid], pid_u, json_data
             except KeyError:
+                if 'missing' in data['query']['pages'][pid_u]:
+                    continue
                 pdb.set_trace()
                 print('yielding None')
                 # yield None, None, None
@@ -221,34 +224,49 @@ def resolve_redirects(links, title2id, title2redirect):
     result = []
     for link in links:
         try:
-            result.append(title2redirect[link])
+            result.append(title2id[title2redirect[link]])
         except KeyError:
             try:
                 result.append(title2id[link])
             except KeyError:
                 # a link to an article that didn't exist at DUMP_DATE, but
                 # unfortunately is linked in the old revision retrieved via API
-                print('       ', link, 'not found ----')
+                # print('       ', link, 'not found ----')
                 pass
     return result
 
 
-def get_top_n_links(n, start, stop):
-    # extract the first n links
+def get_top_n_links_chunks(chunksize=100000):
     id2title = read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
     title2redirect = read_pickle(os.path.join(DATA_DIR, 'title2redirect.obj'))
+    pids = sorted(set(id2title.keys()) - set(title2id[t] for t in title2redirect))
+
+    chunks = range(0, len(pids), chunksize) + [len(pids)]
+    for start, stop in zip(chunks, chunks[1:]):
+        print('getting links [%d:%d]' % (start, stop))
+        get_top_n_links(id2title, title2id, title2redirect, pids,
+                        start=start, stop=stop)
+
+
+def get_top_n_links(id2title, title2id, title2redirect, pids,
+                    n=20, start=None, stop=None):
+    # extract the first n links
     title2links = {}
+
     parser = WikipediaHTMLParser(top_n=n, debug=False)
     # parser = WikipediaHTMLParser(debug=True)
+
     for idx, (title, pid, html) in enumerate(
             article_generator(
-                DATA_DIR, id2title, title2id, title2redirect,
+                DATA_DIR, pids=pids, id2title=id2title,
                 start=start,
                 stop=stop
             )
     ):
-        print(idx, pid, title, 'http://simple.wikipedia.org/wiki/' + title)
+        # print(idx, pid, title, 'http://simple.wikipedia.org/wiki/' + title)
+        if (idx % 1000) == 0:
+            print('\r', idx, end='')
         parser.feed(html)
         # links = parser.get_data()[:20]
         links = parser.get_data()
@@ -273,18 +291,28 @@ def get_top_n_links(n, start, stop):
             outfile.write(unicode(k) + '\t' + ';'.join(u_links) + '\n')
 
 
+def combine_chunks(data_dir):
+    chunks = [f for f in os.listdir(data_dir) if 'top20links_' in f]
+    with io.open(os.path.join(DATA_DIR, 'top20links.tsv'), 'w',
+                 encoding='utf-8') as outfile:
+        for chunk in chunks:
+            with io.open(os.path.join(data_dir, chunk), encoding='utf-8')\
+                    as infile:
+                for line in infile:
+                    outfile.write(line)
+
+
 if __name__ == '__main__':
+    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
+    # check_files(DATA_DIR)
+    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
+
     # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
-    # get_redirect_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
     # get_resolved_redirects(DATA_DIR)
 
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
-    damaged = [297167, 35932, 359158]
-    # TODO: 29709 has problems
-    crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, pids=damaged, replace=True)
+    # get_top_n_links_chunks()
 
-    # start = 0
-    # stop = 1000
-    #
-    # get_top_n_links(20, start, stop)
-    #
+    combine_chunks(DATA_DIR)
+
+
+

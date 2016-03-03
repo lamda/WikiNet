@@ -110,14 +110,33 @@ def get_id_dict(data_dir, wiki_name, dump_date):
             if not line.startswith('INSERT'):
                 continue
             # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
-            matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
-            for page_id, page_namespace, page_title in matches:
+            # matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
+            matches = re.findall(r"\((\d+),(\d+),'(.*?)((?<!\\)|(?<=\\\\))'", line)
+            for page_id, page_namespace, page_title, dummy in matches:
                 if page_namespace != '0':
                     continue
                 id2title[int(page_id)] = url_escape(page_title)
-
         with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
             pickle.dump(id2title, outfile, -1)
+
+
+def check_files(data_dir):
+    damaged = []
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+    for pid in debug_iter(id2title.keys()):
+        pid_u = unicode(pid)
+        fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
+        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
+            try:
+                data = json.load(infile)
+            except ValueError:
+                print('\n\t', pid)
+                damaged.append(pid)
+
+    with io.open(os.path.join(data_dir, 'damaged.txt'), 'w', encoding='utf-8')\
+            as outfile:
+        for d in sorted(damaged):
+            outfile.write(unicode(d) + '\n')
 
 
 def get_redirect_dict(data_dir, wiki_name, dump_date):
@@ -131,8 +150,9 @@ def get_redirect_dict(data_dir, wiki_name, dump_date):
             if not line.startswith('INSERT'):
                 continue
             # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
-            matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
-            for page_id, page_namespace, page_title in matches:
+            # matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
+            matches = re.findall(r"\((\d+),(\d+),'(.*?)((?<!\\)|(?<=\\\\))'", line)
+            for page_id, page_namespace, page_title, dummy in matches:
                 if page_namespace != '0':
                     continue
                 id2redirect[int(page_id)] = url_escape(page_title)

@@ -15,8 +15,8 @@ from twisted.web import client
 
 
 class Crawler(object):
-    def __init__(self, label, wiki_code, data_dir, dump_date, pids, limit=None,
-                 replace=False):
+    def __init__(self, label, wiki_code, data_dir, dump_date, pids=None,
+                 limit=None, recrawl_damaged=False):
         self.wiki_code = wiki_code
         self.dump_date = dump_date
         self.label = label
@@ -24,15 +24,19 @@ class Crawler(object):
         self.html_dir = os.path.join(self.data_dir, 'html')
         if not os.path.exists(self.html_dir):
             os.makedirs(self.html_dir)
-        if replace:
-            self.pids = pids
+        if recrawl_damaged:
+            self.pids = []
+            with io.open(os.path.join(self.data_dir, 'damaged.txt'),
+                         encoding='utf-8') as infile:
+                for line in infile:
+                    self.pids.append(line.strip())
         else:
             file_ids = set(f[:-4] for f in os.listdir(self.html_dir))
             self.pids = sorted(set(map(unicode, pids)) - file_ids)
             self.pids = random.sample(self.pids, limit) if limit else self.pids
+            print(len(pids), 'pids total')
         self.pids = map(unicode, self.pids)
         self.titles = set()
-        print(len(pids), 'pids total')
         print(len(self.pids), 'files to download')
         self.no_crawlers = 50
         self.crawl_twisted_ids()
