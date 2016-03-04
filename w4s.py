@@ -20,7 +20,7 @@ import re
 from main import read_pickle
 
 
-DATA_DIR = 'w4s'
+DATA_DIR = os.path.join('data', ''w4s')
 
 
 def get_title2id(data_dir):

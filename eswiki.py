@@ -19,7 +19,7 @@ from main import debug_iter, get_id_dict, get_redirect_dict,\
     get_resolved_redirects, read_pickle, check_files
 from crawler import Crawler
 
-DATA_DIR = 'eswiki'
+DATA_DIR = os.path.join('data', ''eswiki')
 WIKI_NAME = 'eswiki'
 WIKI_CODE = 'es'
 DUMP_DATE = '20160203'
