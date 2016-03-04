@@ -104,7 +104,8 @@ class Crawler(object):
                         content = np.NaN
                         category = np.NaN
                         redirects_to = url_escape(data['redirects'][0]['to'])
-                    elif 'missing' in data['pages'][pid_u]:
+                    elif 'missing' in data['pages'][pid_u] or\
+                            'revisions' not in data['pages'][pid_u]:
                         continue
                     else:
                         title = url_escape(data['pages'][pid_u]['title'])

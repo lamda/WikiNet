@@ -19,11 +19,10 @@ from main import debug_iter, get_id_dict, get_redirect_dict,\
     get_resolved_redirects, read_pickle, check_files
 from crawler import Crawler
 
-DATA_DIR = os.path.join('data', ''eswiki')
+DATA_DIR = os.path.join('data', 'eswiki')
 WIKI_NAME = 'eswiki'
 WIKI_CODE = 'es'
 DUMP_DATE = '20160203'
-
 
 
 def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
@@ -304,7 +303,7 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
+    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
     crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
