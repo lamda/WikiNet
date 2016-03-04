@@ -28,7 +28,8 @@ DUMP_DATE = '20150304'
 def debug_iter(iterable, length=None):
     for index, element in enumerate(iterable):
         if (index % 1000) == 0:
-            print('\r', index, '/', length, end='')
+            # print('\r', index, '/', length, end='')
+            print('\r', index, end='')
         yield element
 
 
