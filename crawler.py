@@ -108,6 +108,10 @@ class Crawler(object):
                         continue
                     else:
                         title = url_escape(data['pages'][pid_u]['title'])
+                        if 'texthidden' in data['pages'][pid_u]['revisions'][0]:
+                            # content of a page that was deleted afterwards,
+                            # e.g., https://it.wikipedia.org/wiki/Tenerife
+                            continue
                         content = data['pages'][pid_u]['revisions'][0]['*']
                         if 'categories' in data['pages'][pid_u]:
                             category = [

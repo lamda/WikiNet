@@ -13,6 +13,7 @@ import io
 import numpy as np
 import operator
 import os
+import pandas as pd
 import pdb
 import random
 import re
@@ -181,30 +182,46 @@ def get_resolved_redirects(data_dir):
     # with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
     #     pickle.dump(title2redirect, outfile, -1)
 
-    damaged = []
-    title2redirect = {}
-    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
-    for pid in debug_iter(id2title):
-        pid_u = unicode(pid)
-        fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
-        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
-            try:
-                data = json.load(infile)
-                rd_from = data['query']['redirects'][0]['from']
-                rd_to = data['query']['redirects'][0]['to']
-                title2redirect[url_escape(rd_from)] = url_escape(rd_to)
-            except KeyError:
-                continue
-            except ValueError:
-                print(pid)
-                damaged.append(pid)
+    # damaged = []
+    # title2redirect = {}
+    # id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+    # for pid in debug_iter(id2title):
+    #     pid_u = unicode(pid)
+    #     fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
+    #     with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
+    #         try:
+    #             data = json.load(infile)
+    #             rd_from = data['query']['redirects'][0]['from']
+    #             rd_to = data['query']['redirects'][0]['to']
+    #             title2redirect[url_escape(rd_from)] = url_escape(rd_to)
+    #         except KeyError:
+    #             continue
+    #         except ValueError:
+    #             print(pid)
+    #             damaged.append(pid)
+    #
+    # if damaged:
+    #     for d in damaged:
+    #         print(d)
+    # else:
+    #     with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
+    #         pickle.dump(title2redirect, outfile, -1)
 
-    if damaged:
-        for d in damaged:
-            print(d)
-    else:
-        with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
-            pickle.dump(title2redirect, outfile, -1)
+    title2redirect = {}
+    file_names = [
+        f
+        for f in os.listdir(os.path.join(data_dir, 'html'))
+        if f.endswith('.obj')
+    ]
+    for fidx, file_name in enumerate(file_names):
+        print('\r', fidx, '/', len(file_names))
+        df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
+        df = df[~df['redirects_to'].isnull()]
+        for k, v in zip(df['title'], df['redirects_to']):
+            title2redirect[k] = v
+
+    with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
+         pickle.dump(title2redirect, outfile, -1)
 
 
 class Graph(object):

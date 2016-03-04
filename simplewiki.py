@@ -12,6 +12,7 @@ import HTMLParser
 import io
 import json
 import os
+import pandas as pd
 import pdb
 import re
 
@@ -29,7 +30,8 @@ def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
     with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
         id2title = pickle.load(infile)
     pids = sorted(id2title)
-    Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids, recrawl_damaged=True)
+    Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids,
+            recrawl_damaged=recrawl_damaged)
 
 
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
@@ -198,25 +200,6 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         return self.fed
 
 
-def article_generator(data_dir, pids, id2title, start=None, stop=None):
-
-    pids = pids[start:stop]
-    for pid in pids:
-        pid_u = unicode(pid)
-        fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
-        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
-            data = json.load(infile)
-            try:
-                json_data = data['query']['pages'][pid_u]['revisions'][0]['*']
-                yield id2title[pid], pid_u, json_data
-            except KeyError:
-                if 'missing' in data['query']['pages'][pid_u]:
-                    continue
-                pdb.set_trace()
-                print('yielding None')
-                # yield None, None, None
-
-
 def resolve_redirects(links, title2id, title2redirect):
     result = []
     for link in links:
@@ -233,70 +216,68 @@ def resolve_redirects(links, title2id, title2redirect):
     return result
 
 
-def get_top_n_links_chunks(chunksize=100000):
-    id2title = read_pickle(os.path.join(DATA_DIR, 'id2title.obj'))
+def get_top_n_links_chunks(data_dir):
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
-    title2redirect = read_pickle(os.path.join(DATA_DIR, 'title2redirect.obj'))
-    pids = sorted(set(id2title.keys()) - set(title2id[t] for t in title2redirect))
+    title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
 
-    chunks = range(0, len(pids), chunksize) + [len(pids)]
-    for start, stop in zip(chunks, chunks[1:]):
-        print('getting links [%d:%d]' % (start, stop))
-        get_top_n_links(id2title, title2id, title2redirect, pids,
-                        start=start, stop=stop)
+    file_names = [
+        f
+        for f in os.listdir(os.path.join(data_dir, 'html'))
+        if f.endswith('.obj')
+    ]
+    for fidx, file_name in enumerate(file_names):
+        print('\r', fidx+1, '/', len(file_names))
+        file_path = os.path.join(data_dir, 'html', file_name)
+        get_top_n_links(title2id, title2redirect, file_path)
 
 
-def get_top_n_links(id2title, title2id, title2redirect, pids,
-                    n=20, start=None, stop=None):
+def get_top_n_links(title2id, title2redirect, file_path, top_n=20):
     # extract the first n links
-    title2links = {}
+    parser = WikipediaHTMLParser(top_n=top_n, debug=False)
+    df = pd.read_pickle(file_path)
 
-    parser = WikipediaHTMLParser(top_n=n, debug=False)
-    # parser = WikipediaHTMLParser(debug=True)
-
-    for idx, (title, pid, html) in enumerate(
-            article_generator(
-                DATA_DIR, pids=pids, id2title=id2title,
-                start=start,
-                stop=stop
-            )
-    ):
+    parsed_links = []
+    for idx, row in df.iterrows():
         # print(idx, pid, title, 'http://simple.wikipedia.org/wiki/' + title)
-        if (idx % 1000) == 0:
-            print('\r', idx, end='')
-        parser.feed(html)
-        # links = parser.get_data()[:20]
-        links = parser.get_data()
-        links = [l.replace('%25', '%') for l in links]  # fix double % encoding
-        # for l in links[:10]:
-        # for l in links[:10]:
-        #     print('   ', l)
-        # print('.........')
-        # for l in links[-10:]:
-        #     print('   ', l)
-        title2links[pid] = resolve_redirects(links, title2id, title2redirect)[:n]
-        # pdb.set_trace()
+        # if (idx % 1000) == 0:
+        #     print('\r', idx, end='')
+        if pd.isnull(row['redirects_to']):
+            parser.feed(row['content'])
+            # links = parser.get_data()[:20]
+            links = parser.get_data()
+            links = [l.replace('%25', '%') for l in links]  # fix double % encoding
+            # for l in links[:10]:
+            # for l in links[:10]:
+            #     print('   ', l)
+            # print('.........')
+            # for l in links[-10:]:
+            #     print('   ', l)
+            li = resolve_redirects(links, title2id, title2redirect)[:top_n]
+            # pdb.set_trace()
+            parsed_links.append([unicode(l) for l in li])
+        else:
+            parsed_links.append([])
 
-    with io.open(
-            os.path.join(
-                DATA_DIR, 'top20links_' +
-                unicode(start) + '_' + unicode(stop) + '.tsv'
-            ), 'w', encoding='utf-8'
-    ) as outfile:
-        for k in sorted(title2links):
-            u_links = [unicode(l) for l in title2links[k]]
-            outfile.write(unicode(k) + '\t' + ';'.join(u_links) + '\n')
+    df['links'] = parsed_links
+    pd.to_pickle(df, file_path)
 
 
 def combine_chunks(data_dir):
-    chunks = [f for f in os.listdir(data_dir) if 'top20links_' in f]
+    file_names = [
+        f
+        for f in os.listdir(os.path.join(data_dir, 'html'))
+        if f.endswith('.obj')
+    ]
     with io.open(os.path.join(DATA_DIR, 'top20links.tsv'), 'w',
                  encoding='utf-8') as outfile:
-        for chunk in chunks:
-            with io.open(os.path.join(data_dir, chunk), encoding='utf-8')\
-                    as infile:
-                for line in infile:
-                    outfile.write(line)
+        for fidx, file_name in enumerate(file_names):
+            print('\r', fidx, '/', len(file_names))
+            df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
+            for idx, row in df.iterrows():
+                outfile.write(
+                    unicode(row['pid']) + '\t' + ';'.join(row['links']) + '\n'
+                )
 
 
 if __name__ == '__main__':
@@ -306,13 +287,13 @@ if __name__ == '__main__':
     # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
-    crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
+    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
 
     # get_resolved_redirects(DATA_DIR)
 
-    # get_top_n_links_chunks()
+    # get_top_n_links_chunks(DATA_DIR)
 
-    # combine_chunks(DATA_DIR)
+    combine_chunks(DATA_DIR)
 
     # from main import Graph
     # g = Graph(data_dir=DATA_DIR, fname='top20links',
