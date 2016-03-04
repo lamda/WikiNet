@@ -345,15 +345,19 @@ class Graph(object):
             print(k, v)
         print('found', stats['singles'], 'single components')
 
+        cstats = stats['comp_stats']
         print('top 10 cycles by cycle length')
-        for comp_stat in stats['comp_stats'][:10]:
+        for comp_stat in cstats[:10]:
             print('len=%d, incomp_len=%d' %
                   (comp_stat['len'], comp_stat['incomp_size']))
             print('    ' + ', '.join(comp_stat['names']))
 
         print('\ntop 10 cycles by incomponent length')
-        stats['comp_stats'].sort(key=operator.itemgetter('incomp_size'), reverse=True)
-        for comp_stat in stats['comp_stats'][:10]:
+        cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
+        cover = sum(comp_stat['incomp_size'] for comp_stat in cstats[:10]) /\
+            sum(comp_stat['incomp_size'] for comp_stat in cstats)
+        print('    covering %.2f%% of articles' % (100 * cover))
+        for comp_stat in cstats[:10]:
             print('len=%d, incomp_len=%d' %
                   (comp_stat['len'], comp_stat['incomp_size']))
             print('    ' + ', '.join(comp_stat['names']))
