@@ -25,14 +25,12 @@ WIKI_CODE = 'es'
 DUMP_DATE = '20160203'
 
 
+
 def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
-    if recrawl_damaged:
-        Crawler(wiki_name, wiki_code, data_dir, dump_date, recrawl_damaged=True)
-    else:
-        with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
-            id2title = pickle.load(infile)
-        pids = sorted(id2title)
-        Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids)
+    with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
+        id2title = pickle.load(infile)
+    pids = sorted(id2title)
+    Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids, recrawl_damaged=recrawl_damaged)
 
 
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
@@ -308,14 +306,13 @@ if __name__ == '__main__':
 
     get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
-    # check_files(DATA_DIR)
+    crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
-    #
+
     # get_resolved_redirects(DATA_DIR)
-    #
+
     # get_top_n_links_chunks()
-    #
+
     # combine_chunks(DATA_DIR)
 
     # from main import Graph
@@ -324,7 +321,6 @@ if __name__ == '__main__':
     # g.load_graph(refresh=False)
     # # g.compute_stats()
     # g.print_stats()
-    #
-    # end_time = datetime.now()
-    # print('Duration: {}'.format(end_time - start_time))
 
+    end_time = datetime.now()
+    print('Duration: {}'.format(end_time - start_time))
