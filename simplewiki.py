@@ -20,7 +20,7 @@ from main import debug_iter, get_id_dict, get_redirect_dict,\
     get_resolved_redirects, read_pickle, check_files
 from crawler import Crawler
 
-DATA_DIR = os.path.join('data', ''simplewiki')
+DATA_DIR = os.path.join('data', 'simplewiki')
 WIKI_NAME = 'simplewiki'
 WIKI_CODE = 'simple'
 DUMP_DATE = '20160203'

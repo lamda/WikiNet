@@ -315,7 +315,9 @@ class Graph(object):
         data = self.basic_stats()
         stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
         # stats['cc'] = self.clustering_coefficient()
-        stats['singles'], stats['comp_stats'] = self.largest_component()
+        stats['cp_size'], stats['cp_count'] = self.largest_component()
+        if self.N == 1:
+            stats['singles'], stats['comp_stats'] = self.cycle_components()
         # stats['bow_tie'] = self.bow_tie()
         # stats['lc_ecc'] = self.eccentricity()
 
@@ -353,13 +355,14 @@ class Graph(object):
             print('    ' + ', '.join(comp_stat['names']))
 
         print('\ntop 10 cycles by incomponent length')
+        no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
-        cover = sum(comp_stat['incomp_size'] for comp_stat in cstats[:10]) /\
-            sum(comp_stat['incomp_size'] for comp_stat in cstats)
+        cover = sum(comp_stat['incomp_size']
+                    for comp_stat in cstats[:10]) / no_articles
         print('    covering %.2f%% of articles' % (100 * cover))
         for comp_stat in cstats[:10]:
-            print('len=%d, incomp_len=%d' %
-                  (comp_stat['len'], comp_stat['incomp_size']))
+            print('len=%d, incomp_len=%d, incomp_perc=%.2f' %
+                  (comp_stat['len'], comp_stat['incomp_size'], 100 * comp_stat['incomp_size'] / no_articles))
             print('    ' + ', '.join(comp_stat['names']))
 
     def basic_stats(self):
@@ -410,11 +413,14 @@ class Graph(object):
     def largest_component(self):
         print('largest_component()')
         component, histogram = gt.label_components(self.graph)
-        # return [
-        #     100 * max(histogram) / self.graph.num_vertices(),  # size of SCC
-        #     len(histogram),  # number of strongly connected components
-        # ]
+        return [
+            100 * max(histogram) / self.graph.num_vertices(),  # size of SCC
+            len(histogram),  # number of strongly connected components
+        ]
 
+    def cycle_components(self):
+        print('cycle_components()')
+        component, histogram = gt.label_components(self.graph)
         print('    get number of vertices per component')
         comp2verts = {i: list() for i in range(len(histogram))}
         for node, comp in enumerate(component.a):

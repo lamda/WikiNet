@@ -26,8 +26,7 @@ DUMP_DATE = '20160203'
 
 
 def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
-    with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
-        id2title = pickle.load(infile)
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     pids = sorted(id2title)
     Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids, recrawl_damaged=recrawl_damaged)
 
