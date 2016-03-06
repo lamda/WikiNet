@@ -1,22 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division, print_function, unicode_literals
-
-import collections
-import cPickle as pickle
-try:
-    import graph_tool.all as gt
-except ImportError:
-    pass
-import HTMLParser
-import io
-import json
 import os
-import pandas as pd
-import pdb
-import re
 
-from main import debug_iter, get_id_dict, get_redirect_dict,\
+from main import crawl, get_id_dict, get_redirect_dict,\
     get_resolved_redirects, Graph, read_pickle, check_files
 
 from crawler import Crawler
