@@ -76,7 +76,8 @@ class Crawler(object):
             print('    skipping chunk %d - %d...' % (start, stop))
             self.get_next_chunk()
         else:
-            print('    crawling chunk %d - %d...' % (start, stop))
+            print('    crawling chunk %d - %d... ' % (start, stop), end=' ')
+            print(time.strftime("%H:%M:%S", time.gmtime()))
             finished = self.parallel(self.pids[start:stop], self.no_crawlers, self.download)
             finished.addErrback(self.handle_error)
             finished.addCallback(self.compress_files, start, stop)
