@@ -17,8 +17,9 @@ import pdb
 import re
 
 from main import debug_iter, get_id_dict, get_redirect_dict,\
-    get_resolved_redirects, read_pickle, check_files
+    get_resolved_redirects, Graph, read_pickle, check_files
 from crawler import Crawler
+
 
 DATA_DIR = os.path.join('data', 'simplewiki')
 WIKI_NAME = 'simplewiki'
@@ -295,12 +296,18 @@ if __name__ == '__main__':
 
     # combine_chunks(DATA_DIR)
 
-    from main import Graph
-    g = Graph(data_dir=DATA_DIR, fname='top20links',
-              use_sample=False, refresh=False, N=1)
-    g.load_graph(refresh=False)
-    # g.compute_stats()
-    g.print_stats()
+    for n_val in [
+        1,
+        5,
+        10,
+        20
+    ]:
+        print('---------------- N = %d ----------------' % n_val)
+        g = Graph(data_dir=DATA_DIR, fname='top20links',
+                  use_sample=False, refresh=False, N=n_val)
+        g.load_graph(refresh=False)
+        g.compute_stats()
+        g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

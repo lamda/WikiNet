@@ -26,6 +26,10 @@ WIKI_CODE = 'en'
 DUMP_DATE = '20150304'
 
 
+np.set_printoptions(precision=3)
+np.set_printoptions(suppress=True)
+
+
 def debug_iter(iterable, length=None):
     for index, element in enumerate(iterable):
         if (index % 1000) == 0:
@@ -148,7 +152,7 @@ def get_redirect_dict(data_dir, wiki_name, dump_date):
     with io.open(fname, encoding='utf-8') as infile:
         lidx = 1
         for line in infile:
-            print(lidx, end='\r')
+            print('\r', lidx, end='')
             lidx += 1
             if not line.startswith('INSERT'):
                 continue
@@ -314,11 +318,11 @@ class Graph(object):
         stats = {}
         data = self.basic_stats()
         stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
-        # stats['cc'] = self.clustering_coefficient()
-        stats['cp_size'], stats['cp_count'] = self.largest_component()
-        if self.N == 1:
-            stats['singles'], stats['comp_stats'] = self.cycle_components()
-        # stats['bow_tie'] = self.bow_tie()
+        # # stats['cc'] = self.clustering_coefficient()
+        # stats['cp_size'], stats['cp_count'] = self.largest_component()
+        # if self.N == 1:
+        #     stats['singles'], stats['comp_stats'] = self.cycle_components()
+        stats['bow_tie'] = self.bow_tie()
         # stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
@@ -342,28 +346,35 @@ class Graph(object):
         with open(self.stats_file_path, 'rb') as infile:
             stats = pickle.load(infile)
         for k, v in stats.items():
-            if k in {'comp_stats', 'singles'}:
+            if k in {'comp_stats', 'singles', 'bow_tie'}:
                 continue
             print(k, v)
-        print('found', stats['singles'], 'single components')
 
-        cstats = stats['comp_stats']
-        print('top 10 cycles by cycle length')
-        for comp_stat in cstats[:10]:
-            print('len=%d, incomp_len=%d' %
-                  (comp_stat['len'], comp_stat['incomp_size']))
-            print('    ' + ', '.join(comp_stat['names']))
+        if 'comp_stats' in stats:
+            print('found', stats['singles'], 'single components')
+            cstats = stats['comp_stats']
+            print('top 10 cycles by cycle length')
+            for comp_stat in cstats[:10]:
+                print('len=%d, incomp_len=%d' %
+                      (comp_stat['len'], comp_stat['incomp_size']))
+                print('    ' + ', '.join(comp_stat['names']))
 
-        print('\ntop 10 cycles by incomponent length')
-        no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
-        cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
-        cover = sum(comp_stat['incomp_size']
-                    for comp_stat in cstats[:10]) / no_articles
-        print('    covering %.2f%% of articles' % (100 * cover))
-        for comp_stat in cstats[:10]:
-            print('len=%d, incomp_len=%d, incomp_perc=%.2f' %
-                  (comp_stat['len'], comp_stat['incomp_size'], 100 * comp_stat['incomp_size'] / no_articles))
-            print('    ' + ', '.join(comp_stat['names']))
+            print('\ntop 10 cycles by incomponent length')
+            no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
+            cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
+            cover = sum(comp_stat['incomp_size']
+                        for comp_stat in cstats[:10]) / no_articles
+            print('    covering %.2f%% of articles' % (100 * cover))
+            for comp_stat in cstats[:10]:
+                print('len=%d, incomp_len=%d, incomp_perc=%.2f' %
+                      (comp_stat['len'], comp_stat['incomp_size'],
+                       100 * comp_stat['incomp_size'] / no_articles))
+                print('    ' + ', '.join(comp_stat['names']))
+
+        if 'bow_tie' in stats:
+            labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
+            for val, label in zip(stats['bow_tie'], labels):
+                print('    %.3f %s' % (val, label))
 
     def basic_stats(self):
         print('basic_stats():')
@@ -490,6 +501,7 @@ class Graph(object):
         scc = set([int(n) for n in lcp.vertices()])
         scc_node = random.sample(scc, 1)[0]
         graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
+        graph_undirected = gt.GraphView(self.graph, directed=False)
 
         outc = np.nonzero(gt.label_out_component(self.graph, scc_node).a)[0]
         inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
@@ -497,7 +509,8 @@ class Graph(object):
         inc = set(inc) - scc
 
         # Tubes, Tendrils and Other
-        wcc = gt.label_largest_component(self.graph, directed=False).a
+        # wcc = gt.label_largest_component(self.graph, directed=False).a
+        wcc = gt.label_out_component(graph_undirected, scc_node).a
         wcc = set(np.nonzero(wcc)[0])
         tube = set()
         out_tendril = set()
@@ -506,7 +519,8 @@ class Graph(object):
         remainder = wcc - inc - outc - scc
 
         for idx, r in enumerate(remainder):
-            print(idx+1, '/', len(remainder), end='\r')
+            if (idx % 100) == 0:
+                print('\r', '   ', idx+1, '/', len(remainder), end='')
             predecessors = set(np.nonzero(gt.label_out_component(graph_reversed, r).a)[0])
             successors = set(np.nonzero(gt.label_out_component(self.graph, r).a)[0])
             if any(p in inc for p in predecessors):
@@ -555,7 +569,7 @@ class Graph(object):
             sample_size = lcp.num_vertices()
         sample = random.sample(vertices, sample_size)
         for idx, node in enumerate(sample):
-            print(idx+1, '/', len(sample), end='\r')
+            print('\r', idx+1, '/', len(sample), end='')
             dist = gt.shortest_distance(lcp, source=node).a
             ecc[max(dist)] += 1
         ecc = [ecc[i] for i in range(max(ecc.keys()) + 2)]
@@ -570,11 +584,11 @@ if __name__ == '__main__':
     # convert_graph_file('recommender_network_top20links_original.tsv')
     # get_id_dict()
 
-    # g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
-    #           use_sample=False, refresh=False, N=1)
-    # g.load_graph(refresh=False)
-    # g.compute_stats()
-    # g.print_stats()
+    g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
+              use_sample=False, refresh=False, N=1)
+    g.load_graph(refresh=False)
+    g.compute_stats()
+    g.print_stats()
     # # g.update_stats()
 
     end_time = datetime.now()

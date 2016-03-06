@@ -17,10 +17,10 @@ import pdb
 import random
 import re
 
-from main import read_pickle
+from main import read_pickle, Graph
 
 
-DATA_DIR = os.path.join('data', ''w4s')
+DATA_DIR = os.path.join('data', 'w4s')
 
 
 def get_title2id(data_dir):
@@ -202,12 +202,17 @@ if __name__ == '__main__':
     #         u_links = [unicode(l) for l in title2links[k]]
     #         outfile.write(unicode(k) + '\t' + ';'.join(u_links) + '\n')
 
-    from main import Graph
-    g = Graph(data_dir=DATA_DIR, fname='top20links',
-              use_sample=False, refresh=False, N=1)
-    g.load_graph(refresh=False)
-    g.compute_stats()
-    g.print_stats()
+    for n_val in [
+        1,
+        5,
+        10,
+        20
+    ]:
+        g = Graph(data_dir=DATA_DIR, fname='top20links',
+                  use_sample=False, refresh=False, N=n_val)
+        g.load_graph(refresh=False)
+        g.compute_stats()
+        g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
