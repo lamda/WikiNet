@@ -70,8 +70,9 @@ class Crawler(object):
         return client.downloadPage(str(url % pid), path)
 
     def get_next_chunk(self, stuff=None):
-        if len(self.chunks) < 2:
+        if len(self.chunks) == 1:
             reactor.stop()
+            return
         start, stop = self.chunks[:2]
         self.chunks = self.chunks[1:]
         if unicode(start) + '-' + unicode(stop) in self.file_names:
