@@ -433,10 +433,10 @@ def combine_chunks(data_dir):
         for f in os.listdir(os.path.join(data_dir, 'html'))
         if f.endswith('.obj')
     ]
-    with io.open(os.path.join(DATA_DIR, 'top20links.tsv'), 'w',
+    with io.open(os.path.join(data_dir, 'top20links.tsv'), 'w',
                  encoding='utf-8') as outfile:
         for fidx, file_name in enumerate(file_names):
-            print('\r', fidx, '/', len(file_names))
+            print('\r', fidx+1, '/', len(file_names))
             df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
             for idx, row in df.iterrows():
                 if pd.isnull(row['redirects_to']):
@@ -516,7 +516,7 @@ class Graph(object):
                               for n in nbs]
         self.graph.add_edge_list(edges)
 
-        print('loading titles...')
+        print('\nloading titles...')
         # load id2title dict
         with open(os.path.join(self.data_dir, 'id2title.obj'), 'rb') as infile:
             id2title = pickle.load(infile)
@@ -524,7 +524,8 @@ class Graph(object):
         # assign titles as a vertex property
         vp_title = self.graph.new_vertex_property('string')
         for vertex in self.graph.vertices():
-            vp_title[self.graph.vertex(vertex)] = id2title[int(self.graph.vp['name'][vertex])]
+            vp_title[self.graph.vertex(vertex)] = id2title[
+                int(self.graph.vp['name'][vertex])]
         self.graph.vp['title'] = vp_title
         self.save()
 
