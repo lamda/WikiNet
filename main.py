@@ -122,7 +122,7 @@ def get_resolved_redirects(data_dir):
         if f.endswith('.obj')
     ]
     for fidx, file_name in enumerate(file_names):
-        print('\r', fidx, '/', len(file_names))
+        print('\r', fidx+1, '/', len(file_names))
         df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
         df = df[~df['redirects_to'].isnull()]
         for k, v in zip(df['title'], df['redirects_to']):
@@ -444,12 +444,8 @@ class Graph(object):
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                parts = line.strip().split('\t')
-                node = parts[0]
+                node, = line.strip().split('\t')[0]
                 nodes.add(node)
-                if len(parts) > 1:
-                    nbs = parts[1].split(';')[:self.N]
-                    nodes.update(nbs)
 
         print('\nadding nodes to graph...')
         for node in debug_iter(nodes, len(nodes)):
@@ -461,10 +457,16 @@ class Graph(object):
         edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                parts = line.strip().split('\t')
-                if len(parts) > 1:
-                    v = self.graph.vertex_index[self.name2node[parts[0]]]
-                    nbs = parts[1].split(';')[:self.N]
+                node, nbs, first_p_len = line.strip().split('\t')
+                if nbs:
+                    nbs = nbs.split(';')
+                    if self.N == 'first_p':
+                        nbs = nbs[:int(first_p_len)]
+                    elif self.N == 'all':
+                        pass
+                    else:
+                        nbs = nbs[:self.N]
+                    v = self.graph.vertex_index[self.name2node[node]]
                     edges += [(v, self.graph.vertex_index[self.name2node[n]])
                               for n in nbs]
         self.graph.add_edge_list(edges)

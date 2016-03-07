@@ -107,6 +107,8 @@ class Crawler(object):
             with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
                 try:
                     data_original = json.load(infile)
+                    if 'error' in data_original:
+                        continue
                     data = data_original['query']
                     if 'redirects' in data:
                         title = url_escape(data['redirects'][0]['from'])

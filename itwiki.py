@@ -19,12 +19,12 @@ if __name__ == '__main__':
 
     # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
-    crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
+    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
 
     # get_resolved_redirects(DATA_DIR)
 
-    # get_top_n_links_chunks()
+    get_top_n_links_chunks(DATA_DIR)
 
     # combine_chunks(DATA_DIR)
 
