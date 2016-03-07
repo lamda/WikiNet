@@ -34,7 +34,9 @@ if __name__ == '__main__':
         1,
         5,
         10,
-        20
+        20,
+        'first_p',
+        'all'
     ]:
         print('---------------- N = %d ----------------' % n_val)
         g = Graph(data_dir=DATA_DIR, fname='top20links',

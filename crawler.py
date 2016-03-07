@@ -13,6 +13,7 @@ import requests
 import shutil
 import time
 from twisted.internet import reactor, defer, task
+from twisted.internet.error import ReactorNotRunning
 from twisted.python import log
 from twisted.web import client
 
@@ -73,7 +74,7 @@ class Crawler(object):
         if len(self.chunks) == 1:
             try:
                 reactor.stop()
-            except twisted.internet.ReactorNotRunning:
+            except ReactorNotRunning:
                 pass
             return
         start, stop = self.chunks[:2]
@@ -105,7 +106,8 @@ class Crawler(object):
             pid_u = file_name.split('.')[0]
             with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
                 try:
-                    data = json.load(infile)['query']
+                    data_original = json.load(infile)
+                    data = data_original['query']
                     if 'redirects' in data:
                         title = url_escape(data['redirects'][0]['from'])
                         content = np.NaN
