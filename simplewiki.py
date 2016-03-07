@@ -30,18 +30,20 @@ if __name__ == '__main__':
 
     combine_chunks(DATA_DIR)
 
-    # for n_val in [
-    #     1,
-    #     5,
-    #     10,
-    #     20
-    # ]:
-    #     print('---------------- N = %d ----------------' % n_val)
-    #     g = Graph(data_dir=DATA_DIR, fname='top20links',
-    #               use_sample=False, refresh=False, N=n_val)
-    #     g.load_graph(refresh=False)
-    #     g.compute_stats()
-    #     g.print_stats()
+    for n_val in [
+        1,
+        5,
+        10,
+        20,
+        'first_p',
+        'all'
+    ]:
+        print('---------------- N = %d ----------------' % n_val)
+        g = Graph(data_dir=DATA_DIR, fname='top20links',
+                  use_sample=False, refresh=False, N=n_val)
+        g.load_graph(refresh=False)
+        g.compute_stats()
+        g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
