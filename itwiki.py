@@ -2,22 +2,10 @@
 
 from __future__ import division, print_function, unicode_literals
 
-import collections
-import cPickle as pickle
-try:
-    import graph_tool.all as gt
-except ImportError:
-    pass
-import HTMLParser
-import io
-import json
 import os
-import pdb
-import re
 
-from main import debug_iter, get_id_dict, get_redirect_dict,\
-    get_resolved_redirects, read_pickle, check_files
-from crawler import Crawler
+from main import get_id_dict, crawl, get_resolved_redirects,\
+    get_top_n_links_chunks, combine_chunks, Graph
 
 DATA_DIR = os.path.join('data', 'itwiki')
 WIKI_NAME = 'itwiki'
@@ -25,14 +13,13 @@ WIKI_CODE = 'it'
 DUMP_DATE = '20160203'
 
 
-
 if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
+    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
+    crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
 
     # get_resolved_redirects(DATA_DIR)

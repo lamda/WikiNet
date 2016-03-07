@@ -34,14 +34,6 @@ np.set_printoptions(precision=3)
 np.set_printoptions(suppress=True)
 
 
-def debug_iter(iterable, length=None):
-    for index, element in enumerate(iterable):
-        if (index % 1000) == 0:
-            # print('\r', index, '/', length, end='')
-            print('\r', index, end='')
-        yield element
-
-
 def convert_graph_file(fname):
     fpath_old = os.path.join('enwiki', fname)
     fpath_new = os.path.join('enwiki', ''.join(fname.split('_original')))
@@ -58,56 +50,6 @@ def convert_graph_file(fname):
     with io.open(fpath_new, 'w', encoding='utf-8') as outfile:
         for node, nbs in node2nbs.items():
             outfile.write(node + '\t' + ';'.join(nbs) + '\n')
-
-
-def read_pickle(fpath):
-    with open(fpath, 'rb') as infile:
-        obj = pickle.load(infile)
-    return obj
-
-
-def url_escape(title):
-    # return title.replace("\\'", "%27")\
-    #             .replace('\\"', '%22')\
-    #             .replace('\\%', '%25')\
-    #             .replace('\\\\', '%5C')\
-    #             .replace(u'\u2013', '%E2%80%93')
-    title = title.replace("\\'", "'")\
-                    .replace('\\"', '"')\
-                    .replace('\\_', '_')\
-                    .replace('\\%', '%')\
-                    .replace('\\\\', '\\')\
-                    .replace(' ', '_')
-    title = urllib.quote(title.encode('utf-8'))
-
-    # unquote a few chars back because they appear in Wikipedia
-    for quoted, unquoted in [
-        ('%21', '!'),
-        ('%22', '"'),
-        # ('%23', '#'),
-        ('%24', '$'),
-        ('%25', '%'),
-        ('%26', '&'),
-        # ('%27', "'"),
-        ('%28', '('),
-        ('%29', ')'),
-        ('%2A', '*'),
-        # ('%2B', '+'),
-        ('%2C', ','),
-        ('%2D', '-'),
-        ('%2E', '.'),
-        ('%2F', '/'),
-        ('%3A', ':'),
-        ('%3B', ';'),
-        ('%3C', '<'),
-        ('%3D', '='),
-        ('%3E', '>'),
-        ('%3F', '?'),
-        ('%40', '@'),
-    ]:
-        title = title.replace(quoted, unquoted)
-
-    return title
 
 
 def get_id_dict(data_dir, wiki_name, dump_date):
@@ -199,15 +141,16 @@ def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
 
 
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
-    def __init__(self, top_n, debug=False):
+    def __init__(self, debug=False):
         HTMLParser.HTMLParser.__init__(self)
-        self.top_n = top_n
         self.found_links = 0
         self.fed = []
         self.tracking_link = False
         self.parentheses_counter = 0
         self.first_link_found = False
         self.first_p_found = False
+        self.first_p_ended = False
+        self.first_p_len = 0
         self.tracking_div = 0
         self.div_counter = 0
         self.table_counter = 0
@@ -253,6 +196,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.parentheses_counter = 0
         self.first_link_found = False
         self.first_p_found = False
+        self.first_p_len = 0
+        self.first_p_ended = False
         self.tracking_div = 0
         self.div_counter = 0
         self.table_counter = 0
@@ -262,24 +207,26 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
     def feed(self, data):
         self.reset()
+        # end_strings = [
+        #     '<h2><span class="mw-headline" id="References">',
+        #     '<h2><span class="mw-headline" id="Notes">',
+        #     '<h2><span class="mw-headline" id="Footnotes">',
+        # ]
         end_strings = [
-            '<h2><span class="mw-headline" id="References">',
-            '<h2><span class="mw-headline" id="Notes">',
-            '<h2><span class="mw-headline" id="Footnotes">',
+            '<h2><span class="mw-headline"',  # split at first section heading
         ]
         for end_string in end_strings:
             data = data.split(end_string)[0]
+
         for line in data.splitlines():
             HTMLParser.HTMLParser.feed(self, line)
-            if self.found_links >= self.top_n:
-                break
 
     def handle_starttag(self, tag, attrs):
-        # if self.debug and tag == 'a' and\
-        #     'Extraso' in ' '.join([a[1] for a in attrs]):
-        #     print('    -->', self.parentheses_counter)
-        #     print('    -->', self.tracking_table, self.table_counter,
-        #           self.tracking_div, self.div_counter)
+        # if self.debug and tag == 'a' and not self.tracking_div and not self.tracking_table:
+        #     # print('    -->', self.parentheses_counter)
+        #     # print('    -->', self.tracking_table, self.table_counter,
+        #     #       self.tracking_div, self.div_counter)
+        #     print(tag, attrs)
         #     pdb.set_trace()
 
         if (tag == 'a' and self.div_counter == 0 and self.table_counter == 0)\
@@ -337,6 +284,9 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 self.table_counter -= 1
                 if self.table_counter == 0:
                     self.tracking_table = min(0, self.tracking_table-1)
+        elif tag == 'p' and not self.first_p_ended:
+            self.first_p_ended = True
+            self.first_p_len = len(self.fed)
 
     def handle_data(self, d):
         # if not self.tracking_link:
@@ -361,7 +311,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         # print(self.parentheses_counter, d)
 
     def get_data(self):
-        return self.fed
+        return self.fed, self.first_p_len
 
 
 def resolve_redirects(links, title2id, title2redirect):
@@ -396,20 +346,21 @@ def get_top_n_links_chunks(data_dir):
         get_top_n_links(title2id, title2redirect, file_path)
 
 
-def get_top_n_links(title2id, title2redirect, file_path, top_n=20):
+def get_top_n_links(title2id, title2redirect, file_path):
     # extract the first n links
-    parser = WikipediaHTMLParser(top_n=top_n, debug=False)
+    parser = WikipediaHTMLParser(debug=False)
     df = pd.read_pickle(file_path)
 
-    parsed_links = []
+    parsed_links, first_p_lens = [], []
     for idx, row in df.iterrows():
-        # print(idx, pid, title, 'http://simple.wikipedia.org/wiki/' + title)
+        # print(idx, row['pid'], row['title'],
+        #       'http://simple.wikipedia.org/wiki/' + row['title'])
         # if (idx % 1000) == 0:
         #     print('\r', idx, end='')
         if pd.isnull(row['redirects_to']):
             parser.feed(row['content'])
             # links = parser.get_data()[:20]
-            links = parser.get_data()
+            links, first_p_len = parser.get_data()
             links = [l.replace('%25', '%') for l in links]  # fix double % encoding
             # for l in links[:10]:
             # for l in links[:10]:
@@ -417,13 +368,15 @@ def get_top_n_links(title2id, title2redirect, file_path, top_n=20):
             # print('.........')
             # for l in links[-10:]:
             #     print('   ', l)
-            li = resolve_redirects(links, title2id, title2redirect)[:top_n]
-            # pdb.set_trace()
+            li = resolve_redirects(links, title2id, title2redirect)
             parsed_links.append([unicode(l) for l in li])
+            first_p_lens.append(first_p_len)
         else:
             parsed_links.append([])
+            first_p_lens.append(0)
 
     df['links'] = parsed_links
+    df['first_p_len'] = first_p_lens
     pd.to_pickle(df, file_path)
 
 
@@ -442,7 +395,7 @@ def combine_chunks(data_dir):
                 if pd.isnull(row['redirects_to']):
                     outfile.write(
                         unicode(row['pid']) + '\t' + ';'.join(row['links']) +
-                        '\n'
+                        '\t' + unicode(row['first_p_len']) + '\n'
                     )
 
 
@@ -804,7 +757,7 @@ if __name__ == '__main__':
     # get_id_dict()
 
     g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
-              use_sample=False, refresh=False, N=1)
+              use_sample=False, refresh=False, N=None)
     g.load_graph(refresh=False)
     g.compute_stats()
     g.print_stats()
