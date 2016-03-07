@@ -32,12 +32,11 @@ if __name__ == '__main__':
 
     for n_val in [
         1,
-        5,
         'first_p',
-        'all'
+        'lead'
     ]:
         print('---------------- N =', n_val, '----------------')
-        g = Graph(data_dir=DATA_DIR, fname='top20links',
+        g = Graph(data_dir=DATA_DIR, fname='links',
                   use_sample=False, refresh=False, N=n_val)
         g.load_graph(refresh=False)
         g.compute_stats()

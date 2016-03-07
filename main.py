@@ -386,7 +386,7 @@ def combine_chunks(data_dir):
         for f in os.listdir(os.path.join(data_dir, 'html'))
         if f.endswith('.obj')
     ]
-    with io.open(os.path.join(data_dir, 'top20links.tsv'), 'w',
+    with io.open(os.path.join(data_dir, 'links.tsv'), 'w',
                  encoding='utf-8') as outfile:
         for fidx, file_name in enumerate(file_names):
             print('\r', fidx+1, '/', len(file_names))
@@ -450,7 +450,7 @@ class Graph(object):
                     nbs = nbs.split(';')
                     if self.N == 'first_p':
                         nbs = nbs[:int(first_p_len)]
-                    elif self.N == 'all':
+                    elif self.N == 'lead':
                         pass
                     else:
                         nbs = nbs[:self.N]
@@ -471,7 +471,7 @@ class Graph(object):
                     nbs = nbs.split(';')
                     if self.N == 'first_p':
                         nbs = nbs[:int(first_p_len)]
-                    elif self.N == 'all':
+                    elif self.N == 'lead':
                         pass
                     else:
                         nbs = nbs[:self.N]
@@ -499,13 +499,14 @@ class Graph(object):
     def compute_stats(self):
         print('computing stats...')
         stats = {}
-        data = self.basic_stats()
-        stats['graph_size'], stats['recommenders'], stats['outdegree_av'], stats['outdegree_median'] = data
+        stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
+            stats['outdegree_median'] = self.basic_stats()
         # # stats['cc'] = self.clustering_coefficient()
         # stats['cp_size'], stats['cp_count'] = self.largest_component()
-        # if self.N == 1:
-        #     stats['singles'], stats['comp_stats'] = self.cycle_components()
+        if self.N == 1:
+            stats['singles'], stats['comp_stats'] = self.cycle_components()
         stats['bow_tie'] = self.bow_tie()
+        stats['bow_tie_changes'] = self.compute_bowtie_changes()
         # stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
@@ -738,6 +739,31 @@ class Graph(object):
         bow_tie = [100 * len(x)/self.graph.num_vertices() for x in bow_tie]
         return bow_tie
 
+    def compute_bowtie_changes(self):
+        labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
+        comp2num = {l: i for l, i in zip(labels, range(len(labels)))}
+        if self.N == 1:
+            return None
+        elif self.N == 'first_p':
+            prev_N = 1
+        elif self.N == 'lead':
+            prev_N = 'first_p'
+        prev_gt_file_path = self.gt_file_path.split('_')[0] +\
+            '_' + unicode(prev_N) + '.gt'
+        prev_graph = gt.load_graph(prev_gt_file_path, fmt='gt')
+
+        changes = np.zeros((len(labels), len(labels)))
+        for node in self.graph.vertices():
+            c1 = comp2num[self.graph.vp['bowtie'][node]]
+            try:
+                c2 = comp2num[prev_graph.vp['bowtie'][node]]
+            except KeyError:
+                c2 = comp2num['OTHER']
+            changes[c1, c2] += 1
+        changes /= prev_graph.num_vertices()
+        return changes
+
+
     def eccentricity(self):
         component, histogram = gt.label_components(self.graph)
         label_of_largest_component = np.argmax(histogram)
@@ -767,10 +793,10 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # convert_graph_file('recommender_network_top20links_original.tsv')
+    # convert_graph_file('recommender_network_links_original.tsv')
     # get_id_dict()
 
-    g = Graph(data_dir=DATA_DIR, fname='recommender_network_top20links',
+    g = Graph(data_dir=DATA_DIR, fname='links',
               use_sample=False, refresh=False, N=None)
     g.load_graph(refresh=False)
     g.compute_stats()

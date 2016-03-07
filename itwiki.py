@@ -24,9 +24,9 @@ if __name__ == '__main__':
 
     # get_resolved_redirects(DATA_DIR)
 
-    get_top_n_links_chunks(DATA_DIR)
+    # get_top_n_links_chunks(DATA_DIR)
 
-    # combine_chunks(DATA_DIR)
+    combine_chunks(DATA_DIR)
 
     # from main import Graph
     # g = Graph(data_dir=DATA_DIR, fname='top20links',
