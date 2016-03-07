@@ -444,8 +444,17 @@ class Graph(object):
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, = line.strip().split('\t')[0]
+                node, nbs, first_p_len = line.strip().split('\t')
                 nodes.add(node)
+                if nbs:
+                    nbs = nbs.split(';')
+                    if self.N == 'first_p':
+                        nbs = nbs[:int(first_p_len)]
+                    elif self.N == 'all':
+                        pass
+                    else:
+                        nbs = nbs[:self.N]
+                    nodes |= set(nbs)
 
         print('\nadding nodes to graph...')
         for node in debug_iter(nodes, len(nodes)):
@@ -491,7 +500,7 @@ class Graph(object):
         print('computing stats...')
         stats = {}
         data = self.basic_stats()
-        stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
+        stats['graph_size'], stats['recommenders'], stats['outdegree_av'], stats['outdegree_median'] = data
         # # stats['cc'] = self.clustering_coefficient()
         # stats['cp_size'], stats['cp_count'] = self.largest_component()
         # if self.N == 1:
@@ -555,11 +564,14 @@ class Graph(object):
         graph_size = self.graph.num_vertices()
         recommenders = len(self.get_recommenders_from_adjacency_list())
         pm = self.graph.degree_property_map('out')
-        outdegree_av = float(np.mean(pm.a[pm.a != 0]))
+        # outdegree_av = float(np.mean(pm.a[pm.a != 0]))
+        outdegree_av = float(np.mean(pm.a))
+        outdegree_median = int(np.median(pm.a))
         print('    ', graph_size, 'nodes in graph')
         print('    ', recommenders, 'recommenders in graph')
         print('     %.2f average out-degree' % outdegree_av)
-        return graph_size, recommenders, outdegree_av
+        print('     %d median out-degree' % outdegree_median)
+        return graph_size, recommenders, outdegree_av, outdegree_median
 
     def get_recommenders_from_adjacency_list(self):
         recommenders = set()
