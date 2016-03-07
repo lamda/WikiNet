@@ -71,7 +71,10 @@ class Crawler(object):
 
     def get_next_chunk(self, stuff=None):
         if len(self.chunks) == 1:
-            reactor.stop()
+            try:
+                reactor.stop()
+            except twisted.internet.ReactorNotRunning:
+                pass
             return
         start, stop = self.chunks[:2]
         self.chunks = self.chunks[1:]
