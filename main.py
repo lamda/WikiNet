@@ -506,7 +506,7 @@ class Graph(object):
             stats['singles'], stats['comp_stats'] = self.cycle_components()
         stats['bow_tie'] = self.bow_tie()
         stats['bow_tie_changes'] = self.compute_bowtie_changes()
-        # stats['lc_ecc'] = self.eccentricity()
+        stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
@@ -517,8 +517,9 @@ class Graph(object):
         with open(self.stats_file_path, 'rb') as infile:
             stats = pickle.load(infile)
 
-        data = self.basic_stats()
-        stats['graph_size'], stats['recommenders'], stats['outdegree_av'] = data
+        # stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
+        #     stats['outdegree_median'] = self.basic_stats()
+        stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
@@ -695,9 +696,9 @@ class Graph(object):
         inc = set(inc) - scc
 
         # Tubes, Tendrils and Other
-        # wcc = gt.label_largest_component(self.graph, directed=False).a
-        wcc = gt.label_out_component(graph_undirected, scc_node).a
-        wcc = set(np.nonzero(wcc)[0])
+        wcc = set(
+            np.nonzero(gt.label_out_component(graph_undirected, scc_node).a)[0]
+        )
         tube = set()
         out_tendril = set()
         in_tendril = set()
@@ -707,8 +708,12 @@ class Graph(object):
         for idx, r in enumerate(remainder):
             if (idx % 100) == 0:
                 print('\r', '   ', idx+1, '/', len(remainder), end='')
-            predecessors = set(np.nonzero(gt.label_out_component(graph_reversed, r).a)[0])
-            successors = set(np.nonzero(gt.label_out_component(self.graph, r).a)[0])
+            predecessors = set(
+                np.nonzero(gt.label_out_component(graph_reversed, r).a)[0]
+            )
+            successors = set(
+                np.nonzero(gt.label_out_component(self.graph, r).a)[0]
+            )
             if any(p in inc for p in predecessors):
                 if any(s in outc for s in successors):
                     tube.add(r)
@@ -762,8 +767,9 @@ class Graph(object):
         changes /= prev_graph.num_vertices()
         return changes
 
-
-    def eccentricity(self):
+    def eccentricity(self, sample_frac=0.05):
+        if self.N == 1:
+            return
         component, histogram = gt.label_components(self.graph)
         label_of_largest_component = np.argmax(histogram)
         largest_component = (component.a == label_of_largest_component)
@@ -775,8 +781,8 @@ class Graph(object):
         print('eccentricity() for lcp of', lcp.num_vertices(), 'vertices')
         ecc = collections.defaultdict(int)
         vertices = [int(v) for v in lcp.vertices()]
-        sample_size = int(0.15 * lcp.num_vertices())
-        if sample_size == 0:
+        sample_size = int(sample_frac * lcp.num_vertices())
+        if sample_frac == 0 or sample_frac == 100:
             sample_size = lcp.num_vertices()
         sample = random.sample(vertices, sample_size)
         for idx, node in enumerate(sample):
@@ -792,15 +798,19 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # convert_graph_file('recommender_network_links_original.tsv')
-    # get_id_dict()
+    wikipedias = [
+        'simple',
 
-    g = Graph(data_dir=DATA_DIR, fname='links',
-              use_sample=False, refresh=False, N=None)
-    g.load_graph(refresh=False)
-    g.compute_stats()
-    g.print_stats()
-    # # g.update_stats()
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
+    ]
+
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

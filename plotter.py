@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import division, print_function
+from __future__ import division, print_function, unicode_literals
 
 import io
 import itertools
@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.rc('pdf', fonttype=42)
 import matplotlib.pyplot as plt
 import numpy as np
+import operator
 import os
 import pdb
 import cPickle as pickle
@@ -43,6 +44,8 @@ class Plotter(object):
             # '.pdf',
         ]
 
+        if 'cycles' in to_plot:
+            self.print_cycles()
         if 'cp_size' in to_plot:
             self.plot('cp_size')
         if 'cp_count' in to_plot:
@@ -63,6 +66,25 @@ class Plotter(object):
             with open(fpath, 'rb') as infile:
                 graph_data = pickle.load(infile)
             self.graph_data[graph_type] = graph_data
+
+    def print_cycles(self):
+        cstats = self.graph_data['1']['comp_stats']
+        no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
+        cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
+        with io.open(os.path.join('data', 'cycles.txt'), 'a',
+                     encoding='utf-8') as outfile:
+            text = self.label[:-4]
+            print(text)
+            outfile.write(text)
+            for cstat in cstats[:3]:
+                cover = 100 * cstat['incomp_size'] / no_articles
+                names = ', '.join(cstat['names'])
+                text = ' & %.1f\\%% & %s &  \\\\\n' % (cover, names)
+                print(text, end='')
+                outfile.write(text)
+            text = '\\hline\n'
+            print(text, end='')
+            outfile.write(text)
 
     def plot(self, prop):
         fig, ax = plt.subplots(1, figsize=(6, 3))
@@ -107,55 +129,47 @@ class Plotter(object):
         plt.close()
 
     def plot_ecc(self):
-        # plot_ecc_legend()
-        fig = plt.figure()
-        figlegend = plt.figure(figsize=(3, 2))
-        ax = fig.add_subplot(111)
-        objects = [
-            matplotlib.patches.Patch(color='black', hatch='---'),
-            matplotlib.patches.Patch(color='black', hatch='//')
-        ]
-        labels = ['N = 5', 'N = 20']
-        for pidx, patch in enumerate(objects):
-            patch.set_fill(False)
+        # # plot_ecc_legend()
+        # fig = plt.figure()
+        # figlegend = plt.figure(figsize=(3, 2))
+        # ax = fig.add_subplot(111)
+        # objects = [
+        #     matplotlib.patches.Patch(color='black', hatch='---'),
+        #     matplotlib.patches.Patch(color='black', hatch='//')
+        # ]
+        # labels = ['N = 5', 'N = 20']
+        # for pidx, patch in enumerate(objects):
+        #     patch.set_fill(False)
+        #
+        # figlegend.legend(objects, labels, ncol=2)
+        # figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
+        # cmd = 'pdfcrop --margins 5 ' +\
+        #       'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
+        # os.system(cmd)
+        # print(cmd)
 
-        figlegend.legend(objects, labels, ncol=2)
-        figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
-        cmd = 'pdfcrop --margins 5 ' +\
-              'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
-        os.system(cmd)
-        print(cmd)
+        fig, ax = plt.subplots(1, figsize=(6.25, 2.5))
+        vals = [self.graph_data[graph_name]['lc_ecc']
+                for graph_name in self.graph_order]
+        for vidx, val, in enumerate(vals):
+            val = [100 * v / sum(val) for v in val]
+            bars = ax.bar(range(len(val)), val, color=self.colors[vidx], lw=2)
 
-        for gidx, graph_type in enumerate(self.graph_order):
-            fig, ax = plt.subplots(1, figsize=(6.25, 2.5))
-            vals = [self.graph_data[graph_name]['lc_ecc']
-                    for graph_name in self.graphs[graph_type]]
-            print(graph_type)
-            for vidx, val, in enumerate(vals):
-                val = [100 * v / sum(val) for v in val]
-                print(len(val) - 1)
-                # av = 0
-                # for vidx2, v in enumerate(val):
-                #     print('%.2f, ' % v, end='')
-                #     av += vidx2 * v
-                # print('average = %.2f' % (av/100))
-                print()
-                bars = ax.bar(range(len(val)), val, color=self.colors[gidx], lw=2)
-                # Beautification
-                for bidx, bar in enumerate(bars):
-                    bar.set_fill(False)
-                    bar.set_hatch(self.hatches[vidx])
-                    bar.set_edgecolor(self.colors[gidx])
-            ax.set_xlim(0, 40)
-            ax.set_ylim(0, 100)
-            ax.set_xlabel('Eccentricity')
-            ax.set_ylabel('% of Nodes')
-            # plt.title(self.rec_type2label[graph_type])
-            plt.tight_layout()
-            fpath = os.path.join(self.plot_folder, self.label + '_' + graph_type + '_ecc')
-            for ftype in self.plot_file_types:
-                plt.savefig(fpath + ftype)
-            plt.close()
+            # Beautification
+            for bidx, bar in enumerate(bars):
+                bar.set_fill(False)
+                bar.set_hatch(self.hatches[vidx])
+                bar.set_edgecolor(self.colors[vidx])
+        ax.set_xlim(0, 40)
+        ax.set_ylim(0, 100)
+        ax.set_xlabel('Eccentricity')
+        ax.set_ylabel('% of Nodes')
+        # plt.title(self.rec_type2label[graph_type])
+        plt.tight_layout()
+        fpath = os.path.join(self.plot_folder, self.label + '_ecc')
+        for ftype in self.plot_file_types:
+            plt.savefig(fpath + ftype)
+        plt.close()
 
     def plot_bow_tie(self):
         # TODO FIXME legend plotting doesn't work
@@ -311,14 +325,24 @@ if __name__ == '__main__':
         'lead'
     ]
     to_plot = [
+        'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     for wp in [
-        'simplewiki',
+        'simple',
+
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
     ]:
-        p = Plotter(wp, to_plot=to_plot)
+        p = Plotter(wp + 'wiki', to_plot=to_plot)

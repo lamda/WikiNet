@@ -39,7 +39,8 @@ if __name__ == '__main__':
         g = Graph(data_dir=DATA_DIR, fname='links',
                   use_sample=False, refresh=False, N=n_val)
         g.load_graph(refresh=False)
-        g.compute_stats()
+        # g.compute_stats()
+        g.update_stats()
         g.print_stats()
 
     end_time = datetime.now()
