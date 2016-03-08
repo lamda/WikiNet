@@ -122,14 +122,14 @@ def get_resolved_redirects(data_dir):
         if f.endswith('.obj')
     ]
     for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names))
+        print('\r', fidx+1, '/', len(file_names), end='')
         df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
         df = df[~df['redirects_to'].isnull()]
         for k, v in zip(df['title'], df['redirects_to']):
             title2redirect[k] = v
 
     with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
-         pickle.dump(title2redirect, outfile, -1)
+        pickle.dump(title2redirect, outfile, -1)
 
 
 def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
@@ -341,7 +341,7 @@ def get_top_n_links_chunks(data_dir):
         if f.endswith('.obj')
     ]
     for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names))
+        print('\r', fidx+1, '/', len(file_names), end='')
         file_path = os.path.join(data_dir, 'html', file_name)
         get_top_n_links(title2id, title2redirect, file_path)
 
@@ -389,7 +389,7 @@ def combine_chunks(data_dir):
     with io.open(os.path.join(data_dir, 'links.tsv'), 'w',
                  encoding='utf-8') as outfile:
         for fidx, file_name in enumerate(file_names):
-            print('\r', fidx+1, '/', len(file_names))
+            print('\r', fidx+1, '/', len(file_names), end='')
             df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
             for idx, row in df.iterrows():
                 if pd.isnull(row['redirects_to']):
@@ -421,7 +421,7 @@ class Graph(object):
             self.graph_name + '_' + str(self.N) + suffix + '.obj'
         )
         self.graph = gt.Graph(directed=True)
-        self.names = self.graph.new_vertex_property('string')
+        self.names = self.graph.new_vertex_property('int32_t')
         lbd_add = lambda: self.graph.add_vertex()
         self.name2node = collections.defaultdict(lbd_add)
 
@@ -459,7 +459,7 @@ class Graph(object):
         print('\nadding nodes to graph...')
         for node in debug_iter(nodes, len(nodes)):
             v = self.name2node[node]
-            self.names[v] = node
+            self.names[v] = int(float(node))
         self.graph.vp['name'] = self.names
 
         print('\nloading edges...')
@@ -488,8 +488,7 @@ class Graph(object):
         # assign titles as a vertex property
         vp_title = self.graph.new_vertex_property('string')
         for vertex in self.graph.vertices():
-            vp_title[self.graph.vertex(vertex)] = id2title[
-                int(self.graph.vp['name'][vertex])]
+            vp_title[self.graph.vertex(vertex)] = id2title[int(self.graph.vp['name'][vertex])]
         self.graph.vp['title'] = vp_title
         self.save()
 

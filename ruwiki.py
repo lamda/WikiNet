@@ -11,17 +11,16 @@ from main import crawl, debug_iter, get_id_dict, get_redirect_dict,\
     get_resolved_redirects, get_top_n_links_chunks, read_pickle, check_files
 from crawler import Crawler
 
-DATA_DIR = os.path.join('data', 'eswiki')
-WIKI_NAME = 'eswiki'
-WIKI_CODE = 'es'
+DATA_DIR = os.path.join('data', 'ruwiki')
+WIKI_NAME = 'ruwiki'
+WIKI_CODE = 'ru'
 DUMP_DATE = '20160203'
-
 
 if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
+    get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
@@ -32,17 +31,17 @@ if __name__ == '__main__':
 
     # combine_chunks(DATA_DIR)
 
-    for n_val in [
-        1,
-        'first_p',
-        'lead'
-    ]:
-        print('---------------- N =', n_val, '----------------')
-        g = Graph(data_dir=DATA_DIR, fname='links',
-                  use_sample=False, refresh=False, N=n_val)
-        g.load_graph(refresh=False)
-        g.compute_stats()
-        g.print_stats()
-
-    end_time = datetime.now()
-    print('Duration: {}'.format(end_time - start_time))
+    # for n_val in [
+    #     1,
+    #     'first_p',
+    #     'lead'
+    # ]:
+    #     print('---------------- N =', n_val, '----------------')
+    #     g = Graph(data_dir=DATA_DIR, fname='links',
+    #               use_sample=False, refresh=False, N=n_val)
+    #     g.load_graph(refresh=False)
+    #     g.compute_stats()
+    #     g.print_stats()
+    #
+    # end_time = datetime.now()
+    # print('Duration: {}'.format(end_time - start_time))
