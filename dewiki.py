@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
     get_top_n_links_chunks(DATA_DIR)
 
-    # combine_chunks(DATA_DIR)
+    combine_chunks(DATA_DIR)
 
     # for n_val in [
     #     1,

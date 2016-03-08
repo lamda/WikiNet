@@ -144,7 +144,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
     def __init__(self, debug=False):
         HTMLParser.HTMLParser.__init__(self)
         self.found_links = 0
-        self.fed = []
+        self.lead_links = []
+        self.infobox_links = []
         self.tracking_link = False
         self.parentheses_counter = 0
         self.first_link_found = False
@@ -191,7 +192,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
     def reset(self):
         self.found_links = 0
-        self.fed = []
+        self.lead_links = []
+        self.infobox_links = []
         self.tracking_link = False
         self.parentheses_counter = 0
         self.first_link_found = False
@@ -238,12 +240,23 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             if href and href[0].startswith('/wiki/'):
                 a_init = href[0].split('/', 2)[-1].split(':')[0]
                 if a_init not in self.file_prefixes:
-                    self.fed.append(
+                    self.lead_links.append(
                         href[0].split('/', 2)[-1].split('#')[0]
                     )
                     self.tracking_link = True
                     self.first_link_found = True
                     self.found_links += 1
+
+        elif tag == 'a' and self.tracking_table:
+            if self.debug:
+                print('a, 0', tag, attrs)
+            href = [a[1] for a in attrs if a[0] == 'href']
+            if href and href[0].startswith('/wiki/'):
+                a_init = href[0].split('/', 2)[-1].split(':')[0]
+                if a_init not in self.file_prefixes:
+                    self.infobox_links.append(
+                        href[0].split('/', 2)[-1].split('#')[0]
+                    )
 
         elif tag == 'div':
             if self.debug:
@@ -257,15 +270,15 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         elif tag == 'table':
             if self.debug:
                 print('table OPEN', tag, attrs)
-            # aclass = [a[1] for a in attrs if a[0] == 'class']
-            # if aclass and 'infobox' in aclass[0]:
-            #     self.tracking_table += 1
-            self.tracking_table += 1
+            aclass = [a[1] for a in attrs if a[0] == 'class']
+            if aclass and 'infobox' in aclass[0]:
+                self.tracking_table += 1
             if self.tracking_table:
                 self.table_counter += 1
 
         elif tag == 'p':
             self.first_p_found = True
+            self.parentheses_counter = 0
 
     def handle_endtag(self, tag):
         if tag == 'a' and self.tracking_link:
@@ -286,7 +299,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                     self.tracking_table = min(0, self.tracking_table-1)
         elif tag == 'p' and not self.first_p_ended:
             self.first_p_ended = True
-            self.first_p_len = len(self.fed)
+            self.first_p_len = len(self.lead_links)
 
     def handle_data(self, d):
         # if not self.tracking_link:
@@ -296,22 +309,14 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         # d = d.strip('\t\x0b\x0c\r \n')
         # if not d:
         #     return
-        # print(d)
-        # pdb.set_trace()
+
         if self.tracking_div or self.tracking_table:
             return
         par_diff = d.count('(') - d.count(')')
         self.parentheses_counter += par_diff
-        # if self.parentheses_counter > 0:
-        #     print(self.parentheses_counter, d)
-        # if 'Notable' in d:
-        #     self.debug_found = True
-        # if self.debug_found:
-        #     print(self.parentheses_counter, d)
-        # print(self.parentheses_counter, d)
 
     def get_data(self):
-        return self.fed, self.first_p_len
+        return self.infobox_links, self.lead_links, self.first_p_len
 
 
 def resolve_redirects(links, title2id, title2redirect):
@@ -351,7 +356,7 @@ def get_top_n_links(title2id, title2redirect, file_path):
     parser = WikipediaHTMLParser(debug=False)
     df = pd.read_pickle(file_path)
 
-    parsed_links, first_p_lens = [], []
+    parsed_ib_links, parsed_lead_links, first_p_lens = [], [], []
     for idx, row in df.iterrows():
         # print(idx, row['pid'], row['title'],
         #       'http://simple.wikipedia.org/wiki/' + row['title'])
@@ -360,22 +365,29 @@ def get_top_n_links(title2id, title2redirect, file_path):
         if pd.isnull(row['redirects_to']):
             parser.feed(row['content'])
             # links = parser.get_data()[:20]
-            links, first_p_len = parser.get_data()
-            links = [l.replace('%25', '%') for l in links]  # fix double % encoding
-            # for l in links[:10]:
-            # for l in links[:10]:
+            ib_links, lead_links, first_p_len = parser.get_data()
+            # fix double % encoding
+            ib_links = [l.replace('%25', '%') for l in ib_links]
+            lead_links = [l.replace('%25', '%') for l in lead_links]
+
+            # for l in ib_links[:10]:
             #     print('   ', l)
             # print('.........')
-            # for l in links[-10:]:
+            # for l in lead_links[:10]:
             #     print('   ', l)
-            li = resolve_redirects(links, title2id, title2redirect)
-            parsed_links.append([unicode(l) for l in li])
+            # pdb.set_trace()
+            ib_li = resolve_redirects(ib_links, title2id, title2redirect)
+            lead_li = resolve_redirects(lead_links, title2id, title2redirect)
+            parsed_ib_links.append([unicode(l) for l in ib_li])
+            parsed_lead_links.append([unicode(l) for l in lead_li])
             first_p_lens.append(first_p_len)
         else:
-            parsed_links.append([])
+            parsed_ib_links.append([])
+            parsed_lead_links.append([])
             first_p_lens.append(0)
 
-    df['links'] = parsed_links
+    df['ib_links'] = parsed_ib_links
+    df['lead_links'] = parsed_lead_links
     df['first_p_len'] = first_p_lens
     pd.to_pickle(df, file_path)
 
@@ -394,8 +406,9 @@ def combine_chunks(data_dir):
             for idx, row in df.iterrows():
                 if pd.isnull(row['redirects_to']):
                     outfile.write(
-                        unicode(row['pid']) + '\t' + ';'.join(row['links']) +
-                        '\t' + unicode(row['first_p_len']) + '\n'
+                        unicode(row['pid']) + '\t' + ';'.join(row['ib_links']) +
+                        ';'.join(row['lead_links']) + '\t' +
+                        unicode(row['first_p_len']) + '\n'
                     )
 
 
@@ -810,7 +823,6 @@ if __name__ == '__main__':
         # 'ja',
         # 'nl',
     ]
-
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
