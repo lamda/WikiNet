@@ -188,6 +188,12 @@ nodes.append('svg:rect')
         .attr('y', function(n, i) {
             return y(n.offsetValue) + i * padding + 10;
         })
+        .attr('x', function(n) {
+            if (n.id > 20)
+                return "-100"
+            else
+                return "0"
+        })
         .attr('width', x.rangeBand())
         .attr('height', function(n) { return y(n.nodeValue) })
         .append('svg:title')
@@ -200,7 +206,10 @@ nodes.append('svg:text')
                 return 245;
             },
             x: function(d) {
-                return x(0) - w / 7.5 * gapratio;
+                if (d.id > 20)
+                    return x(0) - w / 7.5 * gapratio - 100
+                else
+                    return x(0) - w / 7.5 * gapratio
             },
             "font-family": "Helvetica",
             "font-size": "17px",
@@ -217,9 +226,9 @@ nodes.append('svg:text')
                 if (d.id == 8)
                     return "first paragraph";
                 if (d.id == 15)
-                    return "entire lead";
+                    return "lead";
                 if (d.id == 22)
-                    return "N = 15";   
+                    return "infobox";   
                 if (d.id == 29)
                     return "N = 20";
                 }
@@ -232,7 +241,10 @@ nodes.append('svg:text')
                 return y(d.nodeValue/2 + d.offsetValue) + i * padding + 5;
             },
             x: function(d) {
-                return x(0) - w / 7.5 * gapratio;
+                if (d.id > 20)
+                    return x(0) - w / 7.5 * gapratio - 100
+                else
+                    return x(0) - w / 7.5 * gapratio
             },
             "font-family": "Helvetica",
             //"font-size": "17px",

@@ -32,7 +32,7 @@ class Plotter(object):
         # self.hatches = ['', 'xxx', '///', '---']
         self.hatches = ['----', '/', 'xxx', '///', '---']
         self.linestyles = ['-', '--', ':', '-.']
-        self.graph_order = ['1', 'first_p', 'lead']
+        self.graph_order = ['1', 'first_p', 'lead', 'infobox']
         self.graph_data = {}
         self.bowtie_changes = {}
         self.plot_folder = 'plots'
@@ -41,7 +41,7 @@ class Plotter(object):
         self.load_graph_data()
         self.plot_file_types = [
             '.png',
-            # '.pdf',
+            '.pdf',
         ]
 
         if 'cycles' in to_plot:
@@ -129,38 +129,39 @@ class Plotter(object):
         plt.close()
 
     def plot_ecc(self):
-        # # plot_ecc_legend()
-        # fig = plt.figure()
-        # figlegend = plt.figure(figsize=(3, 2))
-        # ax = fig.add_subplot(111)
-        # objects = [
-        #     matplotlib.patches.Patch(color='black', hatch='---'),
-        #     matplotlib.patches.Patch(color='black', hatch='//')
-        # ]
-        # labels = ['N = 5', 'N = 20']
-        # for pidx, patch in enumerate(objects):
-        #     patch.set_fill(False)
-        #
-        # figlegend.legend(objects, labels, ncol=2)
-        # figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
-        # cmd = 'pdfcrop --margins 5 ' +\
-        #       'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
-        # os.system(cmd)
-        # print(cmd)
+        # plot_ecc_legend()
+        fig = plt.figure()
+        figlegend = plt.figure(figsize=(3, 2))
+        ax = fig.add_subplot(111)
+        objects = [
+            matplotlib.patches.Patch(color='black', hatch='---'),
+            matplotlib.patches.Patch(color='black', hatch='//'),
+            matplotlib.patches.Patch(color='black', hatch='xxx'),
+        ]
+        labels = ['first paragraph', 'lead', 'infobox']
+        for pidx, patch in enumerate(objects):
+            patch.set_fill(False)
+
+        figlegend.legend(objects, labels, ncol=3)
+        figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
+        cmd = 'pdfcrop --margins 5 ' +\
+              'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
+        os.system(cmd)
+        print(cmd)
 
         fig, ax = plt.subplots(1, figsize=(6.25, 2.5))
         vals = [self.graph_data[graph_name]['lc_ecc']
-                for graph_name in self.graph_order]
+                for graph_name in self.graph_order[1:]]
         for vidx, val, in enumerate(vals):
             val = [100 * v / sum(val) for v in val]
-            bars = ax.bar(range(len(val)), val, color=self.colors[vidx], lw=2)
+            bars = ax.bar(range(len(val)), val, color=self.colors[vidx], lw=1)
 
             # Beautification
             for bidx, bar in enumerate(bars):
                 bar.set_fill(False)
                 bar.set_hatch(self.hatches[vidx])
                 bar.set_edgecolor(self.colors[vidx])
-        ax.set_xlim(0, 40)
+        ax.set_xlim(0, 100)
         ax.set_ylim(0, 100)
         ax.set_xlabel('Eccentricity')
         ax.set_ylabel('% of Nodes')
@@ -248,7 +249,7 @@ class Plotter(object):
         for i, d in zip(indices, data_raw):
             data[i] = d
         changes = [self.graph_data[g]['bow_tie_changes'] for g in self.graph_order]
-        changes = [[]] + [c.T for c in changes[1:]]
+        changes = [[]] + [c.T for c in changes[1:-1]]
 
         # DEBUG
         # data = [[0.38461538461538464, 0.054945054945054944, 0.0, 0.0, 0.0, 0.0, 99.56043956043956], [7.362637362637362, 0.32967032967032966, 0.35714285714285715, 10.714285714285714, 11.868131868131869, 2.82967032967033, 66.53846153846153], [23.818681318681318, 8.928571428571429, 23.708791208791208, 0.46703296703296704, 25.384615384615383, 17.225274725274726, 0.46703296703296704], [38.51648351648352, 56.73076923076923, 3.131868131868132, 0.0, 0.989010989010989, 0.4945054945054945, 0.13736263736263737], [27.335164835164836, 68.98351648351648, 2.6923076923076925, 0.0, 0.7142857142857143, 0.27472527472527475, 0.0], [21.181318681318682, 75.16483516483517, 2.857142857142857, 0.0, 0.6593406593406593, 0.13736263736263737, 0.0], [16.703296703296704, 80.13736263736264, 2.5824175824175826, 0.0, 0.43956043956043955, 0.13736263736263737, 0.0], [13.626373626373626, 83.35164835164835, 2.5824175824175826, 0.0, 0.38461538461538464, 0.054945054945054944, 0.0], [11.813186813186814, 85.46703296703296, 2.3626373626373627, 0.0, 0.3021978021978022, 0.054945054945054944, 0.0], [10.219780219780219, 87.3076923076923, 2.197802197802198, 0.0, 0.24725274725274726, 0.027472527472527472, 0.0], [9.093406593406593, 88.54395604395604, 2.1153846153846154, 0.0, 0.21978021978021978, 0.027472527472527472, 0.0], [7.6098901098901095, 91.4010989010989, 0.8241758241758241, 0.0, 0.10989010989010989, 0.054945054945054944, 0.0], [6.758241758241758, 92.33516483516483, 0.7692307692307693, 0.0, 0.10989010989010989, 0.027472527472527472, 0.0], [5.989010989010989, 93.1043956043956, 0.7692307692307693, 0.0, 0.10989010989010989, 0.027472527472527472, 0.0], [5.769230769230769, 93.37912087912088, 0.7142857142857143, 0.0, 0.10989010989010989, 0.027472527472527472, 0.0], [5.549450549450549, 94.45054945054945, 0.0, 0.0, 0.0, 0.0, 0.0], [5.1098901098901095, 94.89010989010988, 0.0, 0.0, 0.0, 0.0, 0.0], [4.8901098901098905, 95.10989010989012, 0.0, 0.0, 0.0, 0.0, 0.0], [4.697802197802198, 95.3021978021978, 0.0, 0.0, 0.0, 0.0, 0.0], [4.532967032967033, 95.46703296703296, 0.0, 0.0, 0.0, 0.0, 0.0]]
@@ -325,13 +326,13 @@ if __name__ == '__main__':
         'lead'
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     for wp in [
         'simple',

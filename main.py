@@ -407,7 +407,7 @@ def combine_chunks(data_dir):
                 if pd.isnull(row['redirects_to']):
                     outfile.write(
                         unicode(row['pid']) + '\t' + ';'.join(row['ib_links']) +
-                        ';'.join(row['lead_links']) + '\t' +
+                        '\t' + ';'.join(row['lead_links']) + '\t' +
                         unicode(row['first_p_len']) + '\n'
                     )
 
@@ -457,17 +457,18 @@ class Graph(object):
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, nbs, first_p_len = line.strip().split('\t')
+                node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
                 nodes.add(node)
-                if nbs:
-                    nbs = nbs.split(';')
-                    if self.N == 'first_p':
-                        nbs = nbs[:int(first_p_len)]
-                    elif self.N == 'lead':
-                        pass
+                if self.N == 'infobox' and ib_nbs:
+                    nodes |= set(ib_nbs.split(';'))
+                elif lead_nbs:
+                    lead_nbs = lead_nbs.split(';')
+                    if self.N == 1:
+                        nodes.add(lead_nbs[0])
+                    elif self.N == 'first_p':
+                        nodes |= set(lead_nbs[:int(first_p_len)])
                     else:
-                        nbs = nbs[:self.N]
-                    nodes |= set(nbs)
+                        nodes |= set(lead_nbs)
 
         print('\nadding nodes to graph...')
         for node in debug_iter(nodes, len(nodes)):
@@ -479,15 +480,22 @@ class Graph(object):
         edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, nbs, first_p_len = line.strip().split('\t')
-                if nbs:
-                    nbs = nbs.split(';')
-                    if self.N == 'first_p':
-                        nbs = nbs[:int(first_p_len)]
-                    elif self.N == 'lead':
-                        pass
+                node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
+                nbs = []
+                if self.N == 'infobox' and ib_nbs:
+                    nbs = set(ib_nbs.split(';'))
+                elif lead_nbs:
+                    lead_nbs = lead_nbs.split(';')
+                    if self.N == 1:
+                        nbs = lead_nbs[:1]
+                    elif self.N == 'first_p':
+                        nbs = lead_nbs[:int(first_p_len)]
                     else:
-                        nbs = nbs[:self.N]
+                        nbs = lead_nbs
+                    v = self.graph.vertex_index[self.name2node[node]]
+                    edges += [(v, self.graph.vertex_index[self.name2node[n]])
+                              for n in nbs]
+                if nbs:
                     v = self.graph.vertex_index[self.name2node[node]]
                     edges += [(v, self.graph.vertex_index[self.name2node[n]])
                               for n in nbs]
@@ -514,7 +522,7 @@ class Graph(object):
         stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
             stats['outdegree_median'] = self.basic_stats()
         # # stats['cc'] = self.clustering_coefficient()
-        # stats['cp_size'], stats['cp_count'] = self.largest_component()
+        stats['cp_size'], stats['cp_count'] = self.largest_component()
         if self.N == 1:
             stats['singles'], stats['comp_stats'] = self.cycle_components()
         stats['bow_tie'] = self.bow_tie()
@@ -736,6 +744,7 @@ class Graph(object):
                 out_tendril.add(r)
             else:
                 other.add(r)
+        print()
 
         vp_bowtie = self.graph.new_vertex_property('string')
         for component, label in [
@@ -759,7 +768,7 @@ class Graph(object):
     def compute_bowtie_changes(self):
         labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
         comp2num = {l: i for l, i in zip(labels, range(len(labels)))}
-        if self.N == 1:
+        if self.N == 1 or self.N == 'infobox':
             return None
         elif self.N == 'first_p':
             prev_N = 1
@@ -780,7 +789,7 @@ class Graph(object):
         changes /= prev_graph.num_vertices()
         return changes
 
-    def eccentricity(self, sample_frac=0.05):
+    def eccentricity(self, sample_frac=0.01):
         if self.N == 1:
             return
         component, histogram = gt.label_components(self.graph)
@@ -802,6 +811,7 @@ class Graph(object):
             print('\r', idx+1, '/', len(sample), end='')
             dist = gt.shortest_distance(lcp, source=node).a
             ecc[max(dist)] += 1
+        print()
         ecc = [ecc[i] for i in range(max(ecc.keys()) + 2)]
         lc_ecc = [100 * v / sum(ecc) for v in ecc]
         return lc_ecc
