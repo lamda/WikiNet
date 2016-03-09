@@ -532,7 +532,7 @@ class Graph(object):
             stats['singles'], stats['comp_stats'] = self.cycle_components()
         stats['bow_tie'] = self.bow_tie()
         stats['bow_tie_changes'] = self.compute_bowtie_changes()
-        stats['lc_ecc'] = self.eccentricity()
+        # stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
