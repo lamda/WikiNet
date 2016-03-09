@@ -38,7 +38,8 @@ class Crawler(object):
         self.titles = set()
         self.no_crawlers = 100
         self.chunks = range(0, len(pids), chunksize) + [len(pids)]
-
+        # if label == 'enwiki':
+        #     self.chunks = self.chunks[1130:1140]
         self.file_names = set(f[:-4] for f in os.listdir(self.html_dir)
                               if '.obj' in f)
         self.pids = sorted(set(map(unicode, pids)))
@@ -166,7 +167,8 @@ class Crawler(object):
 
     def get_missing_pids(self):
         pids = set()
-        for file_name in self.file_names:
+        for fidx, file_name in enumerate(sorted(self.file_names)):
+            print(fidx+1, '/', len(self.file_names), file_name)
             start, stop = file_name.split('.')[0].split('-')
             target_ids = set(self.pids[int(start):int(stop)])
             df = pd.read_pickle(os.path.join(self.html_dir, file_name + '.obj'))
@@ -174,7 +176,9 @@ class Crawler(object):
         return pids
 
     def crawl_missing(self):
+        print('0')
         pids = self.get_missing_pids()
+        print('1')
         finished = self.parallel(pids, self.no_crawlers, self.download)
         finished.addErrback(self.handle_error)
         finished.addCallback(self.compress_files, start=None, stop=None)

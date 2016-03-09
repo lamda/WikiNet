@@ -115,6 +115,7 @@ def get_redirect_dict(data_dir, wiki_name, dump_date):
 
 
 def get_resolved_redirects(data_dir):
+    print('getting resolved redirects...')
     title2redirect = {}
     file_names = [
         f
@@ -127,6 +128,7 @@ def get_resolved_redirects(data_dir):
         df = df[~df['redirects_to'].isnull()]
         for k, v in zip(df['title'], df['redirects_to']):
             title2redirect[k] = v
+    print()
 
     with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
         pickle.dump(title2redirect, outfile, -1)
@@ -335,7 +337,8 @@ def resolve_redirects(links, title2id, title2redirect):
     return result
 
 
-def get_top_n_links_chunks(data_dir):
+def get_top_n_links_chunks(data_dir, start=None, stop=None):
+    print('getting top n links...')
     id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
     title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
@@ -344,11 +347,12 @@ def get_top_n_links_chunks(data_dir):
         f
         for f in os.listdir(os.path.join(data_dir, 'html'))
         if f.endswith('.obj')
-    ]
+    ][start:stop]
     for fidx, file_name in enumerate(file_names):
         print('\r', fidx+1, '/', len(file_names), end='')
         file_path = os.path.join(data_dir, 'html', file_name)
         get_top_n_links(title2id, title2redirect, file_path)
+    print()
 
 
 def get_top_n_links(title2id, title2redirect, file_path):
@@ -393,6 +397,7 @@ def get_top_n_links(title2id, title2redirect, file_path):
 
 
 def combine_chunks(data_dir):
+    print('combining chunks...')
     file_names = [
         f
         for f in os.listdir(os.path.join(data_dir, 'html'))

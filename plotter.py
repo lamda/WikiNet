@@ -14,6 +14,9 @@ import pdb
 import cPickle as pickle
 
 
+from tools import url_unescape
+
+
 class Plotter(object):
     def __init__(self, label, to_plot):
         self.label = label
@@ -68,6 +71,46 @@ class Plotter(object):
             self.graph_data[graph_type] = graph_data
 
     def print_cycles(self):
+        def translate(word):
+            d = {
+                # de
+                'Philosophie': 'Philosophy',
+
+                # es
+                'Psicología': 'Psychology',
+                'Profesión': 'Profession',
+                'Especialización': 'Specialization',
+                'Actividad': 'Activity',
+                'Norma social': 'Norm (social)',
+                'Norma jurídica': 'Precept',
+                'Información': 'Information',
+                'Dato': 'Data',
+                'Código (comunicación)': 'Code',
+                'Comunicación': 'Communication',
+
+                #it
+                'Conoscenza': 'Knowledge',
+                'Consapevolezza': 'Awareness',
+                'Psicologia': 'Psychology',
+                'Psiche': 'Psyche (psychology)',
+                'Cervello': 'Brain',
+                'Sistema nervoso centrale': 'Central nervous system',
+                'Sistema nervoso': 'Nervous system',
+                'Tessuto (biologia)': ' Tissue (biology)',
+                'Biologia': 'Biology',
+                'Scienza': 'Science',
+                'Matita': 'Pencil',
+                'Disegno': 'Drawing',
+                'Norma giuridica': 'Precept',
+                'Ordinamento giuridico': 'List of national legal systems',
+                'Diritto': 'Law',
+            }
+
+            try:
+                return d[word]
+            except KeyError:
+                return word
+
         cstats = self.graph_data['1']['comp_stats']
         no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
@@ -78,8 +121,12 @@ class Plotter(object):
             outfile.write(text)
             for cstat in cstats[:3]:
                 cover = 100 * cstat['incomp_size'] / no_articles
-                names = ', '.join(cstat['names'])
-                text = ' & %.1f\\%% & %s &  \\\\\n' % (cover, names)
+                names = [n.replace('_', ' ') for n in cstat['names']]
+                names = map(url_unescape, names)
+                names_translated = ', '.join(map(translate, names))
+                names = ', '.join(names)
+                text = ' & %.1f\\%% & %s & %s \\\\\n' %\
+                       (cover, names_translated, names)
                 print(text, end='')
                 outfile.write(text)
             text = '\\hline\n'
@@ -129,25 +176,25 @@ class Plotter(object):
         plt.close()
 
     def plot_ecc(self):
-        # plot_ecc_legend()
-        fig = plt.figure()
-        figlegend = plt.figure(figsize=(3, 2))
-        ax = fig.add_subplot(111)
-        objects = [
-            matplotlib.patches.Patch(color='black', hatch='---'),
-            matplotlib.patches.Patch(color='black', hatch='//'),
-            matplotlib.patches.Patch(color='black', hatch='xxx'),
-        ]
-        labels = ['first paragraph', 'lead', 'infobox']
-        for pidx, patch in enumerate(objects):
-            patch.set_fill(False)
-
-        figlegend.legend(objects, labels, ncol=3)
-        figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
-        cmd = 'pdfcrop --margins 5 ' +\
-              'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
-        os.system(cmd)
-        print(cmd)
+        # # plot_ecc_legend
+        # fig = plt.figure()
+        # figlegend = plt.figure(figsize=(3, 2))
+        # ax = fig.add_subplot(111)
+        # objects = [
+        #     matplotlib.patches.Patch(color='black', hatch='---'),
+        #     matplotlib.patches.Patch(color='black', hatch='//'),
+        #     matplotlib.patches.Patch(color='black', hatch='xxx'),
+        # ]
+        # labels = ['first paragraph', 'lead', 'infobox']
+        # for pidx, patch in enumerate(objects):
+        #     patch.set_fill(False)
+        #
+        # figlegend.legend(objects, labels, ncol=3)
+        # figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
+        # cmd = 'pdfcrop --margins 5 ' +\
+        #       'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
+        # os.system(cmd)
+        # print(cmd)
 
         fig, ax = plt.subplots(1, figsize=(6.25, 2.5))
         vals = [self.graph_data[graph_name]['lc_ecc']
@@ -161,7 +208,7 @@ class Plotter(object):
                 bar.set_fill(False)
                 bar.set_hatch(self.hatches[vidx])
                 bar.set_edgecolor(self.colors[vidx])
-        ax.set_xlim(0, 100)
+        ax.set_xlim(0, 200)
         ax.set_ylim(0, 100)
         ax.set_xlabel('Eccentricity')
         ax.set_ylabel('% of Nodes')
@@ -330,19 +377,19 @@ if __name__ == '__main__':
         # 'cp_count',
         # 'cp_size',
         # 'cc',
-        # 'ecc',
+        'ecc',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     for wp in [
-        'simple',
+        # 'simple',
 
         # 'en',
         # 'de',
         # 'fr',
-        # 'es',
+        'es',
         # 'ru',
-        # 'it',
+        'it',
         # 'ja',
         # 'nl',
     ]:

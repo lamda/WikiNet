@@ -20,9 +20,9 @@ if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
+    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
 
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
+    crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
 
     # get_resolved_redirects(DATA_DIR)

@@ -64,3 +64,7 @@ def url_escape(title):
     return title
 
 
+def url_unescape(title):
+    title = urllib.unquote(title.encode('utf-8')).decode('utf-8')
+    return title
+
