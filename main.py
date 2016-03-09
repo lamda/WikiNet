@@ -155,8 +155,10 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.first_p_ended = False
         self.first_p_len = 0
         self.tracking_div = 0
+        self.div_counter_any = 0
         self.div_counter = 0
         self.table_counter = 0
+        self.table_counter_any = 0
         self.tracking_table = 0
         self.debug = debug
         self.debug_found = False
@@ -165,6 +167,9 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             'thumb',
             'thumb tright',
             'thumb tleft',
+            'thumbinner'
+            'thumbimage'
+            'thumbcaption',
             'boilerplate metadata'
         ]
 
@@ -203,9 +208,11 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.first_p_len = 0
         self.first_p_ended = False
         self.tracking_div = 0
+        self.tracking_table = 0
+        self.div_counter_any = 0
         self.div_counter = 0
         self.table_counter = 0
-        self.tracking_table = 0
+        self.table_counter_any = 0
         self.debug_found = False
         HTMLParser.HTMLParser.reset(self)
 
@@ -263,6 +270,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         elif tag == 'div':
             if self.debug:
                 print('div OPEN', tag, attrs)
+            self.div_counter_any += 1
             aclass = [a[1] for a in attrs if a[0] == 'class']
             if aclass and aclass[0] in self.skip_divs:
                 self.tracking_div += 1
@@ -272,13 +280,16 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         elif tag == 'table':
             if self.debug:
                 print('table OPEN', tag, attrs)
+            self.table_counter_any += 1
             aclass = [a[1] for a in attrs if a[0] == 'class']
             if aclass and 'infobox' in aclass[0]:
                 self.tracking_table += 1
             if self.tracking_table:
                 self.table_counter += 1
 
-        elif tag == 'p':
+        elif tag == 'p' and self.div_counter_any < 1 and self.table_counter_any < 1:
+        # elif tag == 'p':
+        #     print(self.div_counter_any, self.table_counter_any)
             self.first_p_found = True
             self.parentheses_counter = 0
 
@@ -288,6 +299,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         elif tag == 'div':
             if self.debug:
                 print('div CLOSE')
+            self.div_counter_any -= 1
             if self.tracking_div > 0:
                 self.div_counter -= 1
                 if self.div_counter == 0:
@@ -295,11 +307,12 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         elif tag == 'table':
             if self.debug:
                 print('table CLOSE')
+            self.table_counter_any -= 1
             if self.tracking_table > 0:
                 self.table_counter -= 1
                 if self.table_counter == 0:
                     self.tracking_table = min(0, self.tracking_table-1)
-        elif tag == 'p' and not self.first_p_ended:
+        elif tag == 'p' and not self.first_p_ended and self.first_p_found:
             self.first_p_ended = True
             self.first_p_len = len(self.lead_links)
 
@@ -314,7 +327,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
         if self.tracking_div or self.tracking_table:
             return
-        par_diff = d.count('(') - d.count(')')
+        par_diff = d.count('(') + d.count('[') + d.count('{') -\
+                   d.count(')') - d.count(']') - d.count('}')
         self.parentheses_counter += par_diff
 
     def get_data(self):
@@ -360,12 +374,13 @@ def get_top_n_links_chunks(data_dir, start=None, stop=None, file_list=None):
 def get_top_n_links(title2id, title2redirect, file_path):
     # extract the first n links
     parser = WikipediaHTMLParser(debug=False)
+    # parser = WikipediaHTMLParser(debug=True)
     df = pd.read_pickle(file_path)
 
     parsed_ib_links, parsed_lead_links, first_p_lens = [], [], []
     for idx, row in df.iterrows():
         # print(idx, row['pid'], row['title'],
-        #       'http://simple.wikipedia.org/wiki/' + row['title'])
+        #       'http://de.wikipedia.org/wiki/' + row['title'])
         # if (idx % 1000) == 0:
         #     print('\r', idx, end='')
         if pd.isnull(row['redirects_to']):
@@ -501,9 +516,6 @@ class Graph(object):
                         nbs = lead_nbs[:int(first_p_len)]
                     else:
                         nbs = lead_nbs
-                    v = self.graph.vertex_index[self.name2node[node]]
-                    edges += [(v, self.graph.vertex_index[self.name2node[n]])
-                              for n in nbs]
                 if nbs:
                     v = self.graph.vertex_index[self.name2node[node]]
                     edges += [(v, self.graph.vertex_index[self.name2node[n]])
@@ -517,8 +529,9 @@ class Graph(object):
 
         # assign titles as a vertex property
         vp_title = self.graph.new_vertex_property('string')
-        for vertex in self.graph.vertices():
-            vp_title[self.graph.vertex(vertex)] = id2title[int(self.graph.vp['name'][vertex])]
+        for vertex in debug_iter(self.graph.vertices()):
+            vp_title[self.graph.vertex(vertex)] = id2title[
+                int(self.graph.vp['name'][vertex])]
         self.graph.vp['title'] = vp_title
         self.save()
 
@@ -549,7 +562,9 @@ class Graph(object):
 
         # stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
         #     stats['outdegree_median'] = self.basic_stats()
-        stats['lc_ecc'] = self.eccentricity()
+        # stats['lc_ecc'] = self.eccentricity()
+        stats['bow_tie'] = self.bow_tie()
+        stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
@@ -701,20 +716,19 @@ class Graph(object):
                     'incomp_size': incomp_size
                 }
             )
-        comp_stats.sort(key=operator.itemgetter('len'), reverse=True)
-
+        comp_stats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         return singles, comp_stats
 
     def bow_tie(self):
         print('bow tie')
 
+        all_nodes = set(int(n) for n in self.graph.vertices())
         component, histogram = gt.label_components(self.graph)
+
+        # Core, In and Out
         label_of_largest_component = np.argmax(histogram)
         largest_component = (component.a == label_of_largest_component)
         lcp = gt.GraphView(self.graph, vfilt=largest_component)
-
-        # Core, In and Out
-        all_nodes = set(int(n) for n in self.graph.vertices())
         scc = set([int(n) for n in lcp.vertices()])
         scc_node = random.sample(scc, 1)[0]
         graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
@@ -842,6 +856,27 @@ if __name__ == '__main__':
         # 'ja',
         # 'nl',
     ]
+
+    data = '''
+
+'''
+    url = 'https://de.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
+    print(url % 'Niall_Canavan')
+    parser = WikipediaHTMLParser(debug=True)
+    parser.feed(data)
+
+    ib_links, lead_links, first_p_len = parser.get_data()
+    # fix double % encoding
+    ib_links = [l.replace('%25', '%') for l in ib_links]
+    lead_links = [l.replace('%25', '%') for l in lead_links]
+
+    print('INFOBOX:')
+    for l in ib_links[:10]:
+        print('   ', l)
+    print('\nLEAD:')
+    for l in lead_links[:10]:
+        print('   ', l)
+    pdb.set_trace()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

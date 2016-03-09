@@ -32,9 +32,9 @@ if __name__ == '__main__':
 
     for n_val in [
         1,
-        'first_p',
-        'lead',
-        'infobox',
+        # 'first_p',
+        # 'lead',
+        # 'infobox',
     ]:
         print('---------------- N =', n_val, '----------------')
         g = Graph(data_dir=DATA_DIR, fname='links',

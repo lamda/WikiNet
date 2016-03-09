@@ -376,19 +376,19 @@ if __name__ == '__main__':
         # 'cp_count',
         # 'cp_size',
         # 'cc',
-        'ecc',
+        # 'ecc',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     for wp in [
         # 'simple',
 
-        # 'en',
+        'en',
         'de',
         # 'fr',
-        # 'es',
+        'es',
         # 'ru',
-        # 'it',
+        'it',
         # 'ja',
         # 'nl',
     ]:
