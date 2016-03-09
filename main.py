@@ -337,17 +337,19 @@ def resolve_redirects(links, title2id, title2redirect):
     return result
 
 
-def get_top_n_links_chunks(data_dir, start=None, stop=None):
+def get_top_n_links_chunks(data_dir, start=None, stop=None, file_list=None):
     print('getting top n links...')
     id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
     title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
-
-    file_names = [
-        f
-        for f in os.listdir(os.path.join(data_dir, 'html'))
-        if f.endswith('.obj')
-    ][start:stop]
+    if file_list:
+        file_names = file_list
+    else:
+        file_names = [
+            f
+            for f in os.listdir(os.path.join(data_dir, 'html'))
+            if f.endswith('.obj')
+        ][start:stop]
     for fidx, file_name in enumerate(file_names):
         print('\r', fidx+1, '/', len(file_names), end='')
         file_path = os.path.join(data_dir, 'html', file_name)
@@ -405,9 +407,11 @@ def combine_chunks(data_dir):
     ]
     with io.open(os.path.join(data_dir, 'links.tsv'), 'w',
                  encoding='utf-8') as outfile:
-        for fidx, file_name in enumerate(file_names):
-            print('\r', fidx+1, '/', len(file_names), end='')
+        for fidx, file_name in enumerate(sorted(file_names)):
+            # print('\r', fidx+1, '/', len(file_names), end='')
+            print('\r', fidx+1, '/', len(file_names), file_name, end='')
             df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
+
             for idx, row in df.iterrows():
                 if pd.isnull(row['redirects_to']):
                     outfile.write(

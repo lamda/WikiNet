@@ -372,11 +372,11 @@ if __name__ == '__main__':
         'infobox'
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
-        # 'ecc',
+        'ecc',
         # 'bow_tie',
         'bow_tie_alluvial',
     ]
@@ -384,11 +384,11 @@ if __name__ == '__main__':
         # 'simple',
 
         # 'en',
-        # 'de',
+        'de',
         # 'fr',
-        'es',
+        # 'es',
         # 'ru',
-        'it',
+        # 'it',
         # 'ja',
         # 'nl',
     ]:
