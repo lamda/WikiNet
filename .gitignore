@@ -1,0 +1,7 @@
+*.gz
+*.obj
+*.pdf
+*.png
+*.pyc
+*.sql
+*.tsv
