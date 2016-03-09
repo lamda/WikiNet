@@ -177,24 +177,24 @@ class Plotter(object):
 
     def plot_ecc(self):
         # # plot_ecc_legend
-        # fig = plt.figure()
-        # figlegend = plt.figure(figsize=(3, 2))
-        # ax = fig.add_subplot(111)
-        # objects = [
-        #     matplotlib.patches.Patch(color='black', hatch='---'),
-        #     matplotlib.patches.Patch(color='black', hatch='//'),
-        #     matplotlib.patches.Patch(color='black', hatch='xxx'),
-        # ]
-        # labels = ['first paragraph', 'lead', 'infobox']
-        # for pidx, patch in enumerate(objects):
-        #     patch.set_fill(False)
-        #
-        # figlegend.legend(objects, labels, ncol=3)
-        # figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
-        # cmd = 'pdfcrop --margins 5 ' +\
-        #       'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
-        # os.system(cmd)
-        # print(cmd)
+        fig = plt.figure()
+        figlegend = plt.figure(figsize=(3, 2))
+        ax = fig.add_subplot(111)
+        objects = [
+            matplotlib.patches.Patch(color='black', hatch='---'),
+            matplotlib.patches.Patch(color='black', hatch='//'),
+            matplotlib.patches.Patch(color='black', hatch='xxx'),
+        ]
+        labels = ['First Lead Paragraph', 'Entire Lead', 'Infobox']
+        for pidx, patch in enumerate(objects):
+            patch.set_fill(False)
+
+        figlegend.legend(objects, labels, ncol=3)
+        figlegend.savefig('plots/legend_ecc_full.pdf', bbox_inches='tight')
+        cmd = 'pdfcrop --margins 5 ' +\
+              'plots/legend_ecc_full.pdf plots/legend_ecc.pdf'
+        os.system(cmd)
+        print(cmd)
 
         fig, ax = plt.subplots(1, figsize=(6.25, 2.5))
         vals = [self.graph_data[graph_name]['lc_ecc']

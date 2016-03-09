@@ -28,25 +28,26 @@ if __name__ == '__main__':
 
     # get_resolved_redirects(DATA_DIR)
 
-    if len(sys.argv) == 3:
-        print('restricting to', sys.argv[1], ':', sys.argv[2])
-        get_top_n_links_chunks(DATA_DIR, int(sys.argv[1]), int(sys.argv[2]))
-    else:
-        get_top_n_links_chunks(DATA_DIR)
+    # if len(sys.argv) == 3:
+    #     print('restricting to', sys.argv[1], ':', sys.argv[2])
+    #     get_top_n_links_chunks(DATA_DIR, int(sys.argv[1]), int(sys.argv[2]))
+    # else:
+    #     get_top_n_links_chunks(DATA_DIR)
 
-    # combine_chunks(DATA_DIR)
+    combine_chunks(DATA_DIR)
 
     # for n_val in [
     #     1,
-    #     5,
     #     'first_p',
-    #     'lead'
+    #     'lead',
+    #     'infobox',
     # ]:
     #     print('---------------- N =', n_val, '----------------')
-    #     g = Graph(data_dir=DATA_DIR, fname='top20links',
+    #     g = Graph(data_dir=DATA_DIR, fname='links',
     #               use_sample=False, refresh=False, N=n_val)
     #     g.load_graph(refresh=False)
     #     g.compute_stats()
+    #     # g.update_stats()
     #     g.print_stats()
 
     end_time = datetime.now()
