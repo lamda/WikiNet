@@ -143,7 +143,7 @@ def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
 
 
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
-    def __init__(self, debug=False):
+    def __init__(self, label, debug=False):
         HTMLParser.HTMLParser.__init__(self)
         self.found_links = 0
         self.lead_links = []
@@ -174,6 +174,26 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             'thumb tmulti tleft',
             'boilerplate metadata'
         ]
+
+        if label == 'enwiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+        elif label == 'dewiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+        elif label == 'eswiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+        elif label == 'itwiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+        else:
+            print('WikipediaParser: label (%s) not supported' % label)
+            pdb.set_trace()
 
         self.file_prefixes = {
             # https://en.wikipedia.org/wiki/Help:Files
@@ -284,7 +304,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 print('table OPEN', tag, attrs)
             self.table_counter_any += 1
             aclass = [a[1] for a in attrs if a[0] == 'class']
-            if aclass and 'infobox' in aclass[0]:
+            # if aclass and 'infobox' in aclass[0]:
+            if aclass and any(s in aclass[0] for s in self.infobox_classes):
                 self.tracking_table += 1
             if self.tracking_table:
                 self.table_counter += 1
@@ -366,7 +387,7 @@ class WikipediaTableParser(HTMLParser.HTMLParser):
             for aa in aclass:
                 # for a in aa.split(' '):
                 #     self.class2id[a] = self.pid
-                self.class2id[aa] = self.pid
+                self.class2id[frozenset(aa.split(' '))] = self.pid
 
     def get_data(self):
         return self.class2id
@@ -390,6 +411,7 @@ def resolve_redirects(links, title2id, title2redirect):
 
 def get_top_n_links_chunks(data_dir, start=None, stop=None, file_list=None):
     print('getting top n links...')
+    label = data_dir.split(os.pathsep)[1]
     id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
     title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
@@ -404,14 +426,14 @@ def get_top_n_links_chunks(data_dir, start=None, stop=None, file_list=None):
     for fidx, file_name in enumerate(file_names):
         print('\r', fidx+1, '/', len(file_names), end='')
         file_path = os.path.join(data_dir, 'html', file_name)
-        get_top_n_links(title2id, title2redirect, file_path)
+        get_top_n_links(title2id, title2redirect, file_path, label)
     print()
 
 
-def get_top_n_links(title2id, title2redirect, file_path):
+def get_top_n_links(title2id, title2redirect, file_path, label):
     # extract the first n links
-    parser = WikipediaHTMLParser(debug=False)
-    # parser = WikipediaHTMLParser(debug=True)
+    parser = WikipediaHTMLParser(label=label, debug=False)
+    # parser = WikipediaHTMLParser(label=label, debug=True)
     df = pd.read_pickle(file_path)
 
     parsed_ib_links, parsed_lead_links, first_p_lens = [], [], []
@@ -531,11 +553,25 @@ def combine_table_chunks(data_dir):
         for k, v in d.items():
             class2id[k] += v
 
+    yes = [
+        'infobox',
+    ]
+
+    no = [
+        'metadata',
+        'navbox',
+
+    ]
+
     with io.open(os.path.join(data_dir, 'tables.tsv'), 'w',
                  encoding='utf-8') as outfile:
         for k in sorted(class2id, key=lambda k: len(class2id[k]), reverse=True):
-            outfile.write(unicode(len(class2id[k])) + '\t' + k + '\t' +
+            # if any(d in k for d in yes) or any(d in k for d in no):
+            #     continue
+            outfile.write(unicode(len(class2id[k])) + '\t' +
+                          ' '.join(sorted(k)) + '\t' +
                           ';'.join(map(unicode, class2id[k][:4])) + '\n')
+
 
 class Graph(object):
     def __init__(self, data_dir, fname='', use_sample=False,
