@@ -13,7 +13,6 @@ import os
 import pdb
 import cPickle as pickle
 
-
 from tools import url_unescape
 
 
@@ -33,7 +32,7 @@ class Plotter(object):
             (0.7019607843137254, 0.7019607843137254, 0.7019607843137254)
         ]
         # self.hatches = ['', 'xxx', '///', '---']
-        self.hatches = ['----', '/', 'xxx', '///', '---']
+        self.hatches = ['----', '/', 'xxx', '', '///', '---']
         self.linestyles = ['-', '--', ':', '-.']
         self.graph_order = ['1', 'first_p', 'lead', 'infobox']
         self.graph_data = {}
@@ -57,6 +56,8 @@ class Plotter(object):
             self.plot('cc')
         if 'ecc' in to_plot:
             self.plot_ecc()
+        if 'pls' in to_plot:
+            self.plot_pls()
         if 'bow_tie' in to_plot:
             self.plot_bow_tie()
         if 'bow_tie_alluvial' in to_plot:
@@ -224,6 +225,94 @@ class Plotter(object):
             plt.savefig(fpath + ftype)
         plt.close()
 
+    def plot_pls(self):
+        # # # plot_pls_legend
+        # fig = plt.figure()
+        # figlegend = plt.figure(figsize=(3, 2))
+        # ax = fig.add_subplot(111)
+        # objects = [
+        #     matplotlib.patches.Patch(color='black', hatch='---'),
+        #     matplotlib.patches.Patch(color='black', hatch='//'),
+        #     matplotlib.patches.Patch(color='black', hatch='xxx'),
+        #     matplotlib.patches.Patch(color='black', hatch=''),
+        # ]
+        # labels = ['First Links', 'First Lead Paragraph', 'Entire Lead',
+        #           'Infobox']
+        # for pidx, patch in enumerate(objects):
+        #     patch.set_fill(False)
+        #
+        # figlegend.legend(objects, labels, ncol=3)
+        # figlegend.savefig('plots/legend_pls_full.pdf', bbox_inches='tight')
+        # cmd = 'pdfcrop --margins 5 ' +\
+        #       'plots/legend_pls_full.pdf plots/legend_pls.pdf'
+        # os.system(cmd)
+        # print(cmd)
+
+        fig, (ax, ax2) = plt.subplots(1, 2, figsize=(6.25, 2.5))
+        vals = [self.graph_data[graph_name]['pls']
+                for graph_name in self.graph_order[1:]]
+        vals_max = [self.graph_data[graph_name]['pls_max']
+                    for graph_name in self.graph_order[1:]]
+        for vidx, val, in enumerate(vals):
+            val = [100 * v / sum(val) for v in val]
+            bars = ax.bar(range(len(val)), val, color=self.colors[vidx], lw=1)
+            bars2 = ax2.bar([2147483647+vidx], vals_max[vidx],
+                            color=self.colors[vidx], lw=1)
+
+            # Beautification
+            for bidx, bar in enumerate(bars):
+                bar.set_fill(False)
+                bar.set_hatch(self.hatches[vidx])
+                bar.set_edgecolor(self.colors[vidx])
+            for bidx, bar in enumerate(bars2):
+                bar.set_fill(False)
+                bar.set_hatch(self.hatches[vidx])
+                bar.set_edgecolor(self.colors[vidx])
+
+        ax.set_xlim(0, 200)
+        ax.set_ylim(0, 100)
+        ax.set_xlabel('Path Lengths')
+        ax.set_ylabel('% of Nodes')
+
+        ax2.set_xlim(2147483647-10, 2147483647+10)
+        ax2.set_ylim(0, 100)
+
+        ax.spines['right'].set_visible(False)
+        ax2.spines['left'].set_visible(False)
+
+        # TODO
+
+        # This looks pretty good, and was fairly painless, but you can get that
+        # cut-out diagonal lines look with just a bit more work. The important
+        # thing to know here is that in axes coordinates, which are always
+        # between 0-1, spine endpoints are at these locations (0,0), (0,1),
+        # (1,0), and (1,1).  Thus, we just need to put the diagonals in the
+        # appropriate corners of each of our axes, and so long as we use the
+        # right transform and disable clipping.
+
+        d = .015  # how big to make the diagonal lines in axes coordinates
+        # arguments to pass plot, just so we don't keep repeating them
+        kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
+        ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+        ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+
+        kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+        ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
+        ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
+
+        # What's cool about this is that now if we vary the distance between
+        # ax and ax2 via f.subplots_adjust(hspace=...) or plt.subplot_tool(),
+        # the diagonal lines will move accordingly, and stay right at the tips
+        # of the spines they are 'breaking'
+
+        plt.tight_layout()
+        plt.show()
+
+        fpath = os.path.join(self.plot_folder, self.label + '_pls')
+        for ftype in self.plot_file_types:
+            plt.savefig(fpath + ftype)
+        plt.close()
+
     def plot_bow_tie(self):
         # TODO FIXME legend plotting doesn't work
         # plot the legend in a separate plot
@@ -377,13 +466,14 @@ if __name__ == '__main__':
         'infobox'
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
+        'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     for wp in [
         'simple',

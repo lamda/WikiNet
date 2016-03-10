@@ -682,6 +682,7 @@ class Graph(object):
             stats['outdegree_median'] = self.basic_stats()
         # # stats['cc'] = self.clustering_coefficient()
         stats['cp_size'], stats['cp_count'] = self.largest_component()
+        stats['pls'], stats['pls_max'] = self.path_lengths()
         if self.N == 1:
             stats['singles'], stats['comp_stats'] = self.cycle_components()
         stats['bow_tie'] = self.bow_tie()
@@ -699,9 +700,10 @@ class Graph(object):
 
         # stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
         #     stats['outdegree_median'] = self.basic_stats()
+        stats['pls'], stats['pls_max'] = self.path_lengths()
         # stats['lc_ecc'] = self.eccentricity()
-        stats['bow_tie'] = self.bow_tie()
-        stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        # stats['bow_tie'] = self.bow_tie()
+        # stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
@@ -777,18 +779,6 @@ class Graph(object):
             cc = edges / (len(neighbors[node]) * (len(neighbors[node]) - 1))
             clustering_coefficient += cc
         return clustering_coefficient / self.graph.num_vertices()
-
-    def aggregate_ecc(self, dirname):
-        fnames = os.listdir(dirname)
-        ecc = collections.defaultdict(int)
-        for fname in fnames:
-            with io.open(dirname + '/' + fname, encoding='utf-8') as infile:
-                for line in infile:
-                    data = int(line.strip())
-                    ecc[data] += 1
-        ecc = [ecc[i] for i in range(max(ecc.keys()) + 2)]
-        ecc = [100 * v / sum(ecc) for v in ecc]
-        return ecc
 
     def largest_component(self):
         print('largest_component()')
@@ -974,6 +964,46 @@ class Graph(object):
         ecc = [ecc[i] for i in range(max(ecc.keys()) + 2)]
         lc_ecc = [100 * v / sum(ecc) for v in ecc]
         return lc_ecc
+
+    def aggregate_ecc(self, dirname):
+        fnames = os.listdir(dirname)
+        ecc = collections.defaultdict(int)
+        for fname in fnames:
+            with io.open(dirname + '/' + fname, encoding='utf-8') as infile:
+                for line in infile:
+                    data = int(line.strip())
+                    ecc[data] += 1
+        ecc = [ecc[i] for i in range(max(ecc.keys()) + 2)]
+        ecc = [100 * v / sum(ecc) for v in ecc]
+        return ecc
+
+    def path_lengths(self, sample_frac=0.01):
+        print('path_lengths() ...')
+        pls = collections.defaultdict(int)
+        pls_max = 0
+        sample_size = int(sample_frac * self.graph.num_vertices())
+        if sample_frac == 0 or sample_frac == 100:
+            print('sample size undefined')
+            pdb.set_trace()
+        sample1 = random.sample(xrange(self.graph.num_vertices()), sample_size)
+        sample2 = random.sample(xrange(self.graph.num_vertices()), sample_size)
+        pairs = zip(sample1, sample2)
+
+        for idx, (node1, node2) in enumerate(pairs):
+            print('\r', idx+1, '/', len(pairs), end='')
+            dist = gt.shortest_distance(self.graph, source=node1, target=node2)
+            if dist > 1000000:  # graph tool encodes disconnected as a large int
+                pls_max += 1
+            else:
+                pls[dist] += 1
+        print()
+        sum_pls = sum(pls.values()) + pls_max
+        if pls:
+            pls = [pls[i] for i in range(max(pls.keys()) + 2)]
+        else:
+            pls = []
+        pls = [100 * v / sum_pls for v in pls]
+        return pls, 100 * pls_max / sum_pls
 
 
 if __name__ == '__main__':
