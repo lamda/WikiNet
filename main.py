@@ -21,7 +21,7 @@ import re
 import urllib
 
 from crawler import Crawler
-from tools import debug_iter, read_pickle, url_escape
+from tools import debug_iter, read_pickle, write_pickle, url_escape
 
 
 DATA_DIR = 'enwiki'
@@ -337,6 +337,41 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         return self.infobox_links, self.lead_links, self.first_p_len
 
 
+class WikipediaTableParser(HTMLParser.HTMLParser):
+    def __init__(self):
+        HTMLParser.HTMLParser.__init__(self)
+        self.class2id = {}
+        self.pid = None
+
+    def reset(self):
+        self.class2id = {}
+        self.pid = None
+
+    def feed(self, data, pid):
+        HTMLParser.HTMLParser.reset(self)
+        self.reset()
+        self.pid = pid
+        end_strings = [
+            '<h2><span class="mw-headline"',  # split at first section heading
+        ]
+        for end_string in end_strings:
+            data = data.split(end_string)[0]
+
+        for line in data.splitlines():
+            HTMLParser.HTMLParser.feed(self, line)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'table':
+            aclass = [a[1] for a in attrs if a[0] == 'class']
+            for aa in aclass:
+                # for a in aa.split(' '):
+                #     self.class2id[a] = self.pid
+                self.class2id[aa] = self.pid
+
+    def get_data(self):
+        return self.class2id
+
+
 def resolve_redirects(links, title2id, title2redirect):
     result = []
     for link in links:
@@ -436,7 +471,71 @@ def combine_chunks(data_dir):
                         '\t' + ';'.join(row['lead_links']) + '\t' +
                         unicode(row['first_p_len']) + '\n'
                     )
+        print()
 
+
+def get_table_classes_chunks(data_dir, start=None, stop=None, file_list=None):
+    print('getting table classes...')
+    if file_list:
+        file_names = file_list
+    else:
+        file_names = [
+            f
+            for f in os.listdir(os.path.join(data_dir, 'html'))
+            if f.endswith('.obj')
+        ][start:stop]
+    for fidx, file_name in enumerate(file_names):
+        print('\r', fidx+1, '/', len(file_names), end='')
+        get_table_classes(data_dir, file_name)
+    print()
+
+
+def get_table_classes(data_dir, file_name):
+    # extract the table classes
+    parser = WikipediaTableParser()
+    file_path = os.path.join(data_dir, 'html', file_name)
+    df = pd.read_pickle(file_path)
+    class2id = collections.defaultdict(list)
+
+    for idx, row in df.iterrows():
+        # print(idx, row['pid'], row['title'],
+        #       'http://simple.wikipedia.org/wiki/' + row['title'])
+        # if (idx % 1000) == 0:
+        #     print('\r', idx, end='')
+        if pd.isnull(row['redirects_to']):
+            parser.feed(row['content'], row['pid'])
+            d = parser.get_data()
+
+            # print('-----------------')
+            # for k in d:
+            #     print(k)
+            for k, v in d.items():
+                class2id[k].append(v)
+    file_dir = os.path.join(data_dir, 'html', 'tables')
+    if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+    write_pickle(os.path.join(file_dir, file_name), class2id)
+
+
+def combine_table_chunks(data_dir):
+    print('combining chunks...')
+    file_names = [
+        f
+        for f in os.listdir(os.path.join(data_dir, 'html', 'tables'))
+        if f.endswith('.obj')
+    ]
+    class2id = collections.defaultdict(list)
+    for fidx, file_name in enumerate(sorted(file_names)):
+        print('\r', fidx+1, '/', len(file_names), file_name, end='')
+        d = read_pickle(os.path.join(data_dir, 'html', 'tables', file_name))
+        for k, v in d.items():
+            class2id[k] += v
+
+    with io.open(os.path.join(data_dir, 'tables.tsv'), 'w',
+                 encoding='utf-8') as outfile:
+        for k in sorted(class2id, key=lambda k: len(class2id[k]), reverse=True):
+            outfile.write(unicode(len(class2id[k])) + '\t' + k + '\t' +
+                          ';'.join(map(unicode, class2id[k][:4])) + '\n')
 
 class Graph(object):
     def __init__(self, data_dir, fname='', use_sample=False,
@@ -750,7 +849,6 @@ class Graph(object):
         in_tendril = set()
         other = all_nodes - wcc
         remainder = wcc - inc - outc - scc
-
         for idx, r in enumerate(remainder):
             if (idx % 100) == 0:
                 print('\r', '   ', idx+1, '/', len(remainder), end='')

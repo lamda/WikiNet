@@ -75,6 +75,11 @@ class Plotter(object):
             d = {
                 # de
                 'Philosophie': 'Philosophy',
+                'Welt': 'World',
+                'Totalität': 'Totality',
+                'Liste japanischer Inseln': 'List of islands of Japan',
+                'Kommunikationsmittel': 'Means of communication',
+                'Medium (Kommunikation)': 'Media (Communication)',
 
                 # es
                 'Psicología': 'Psychology',
@@ -102,7 +107,7 @@ class Plotter(object):
                 'Matita': 'Pencil',
                 'Disegno': 'Drawing',
                 'Norma giuridica': 'Precept',
-                'Ordinamento giuridico': 'List of national legal systems',
+                'Ordinamento giuridico': 'Legal system',
                 'Diritto': 'Law',
             }
 
@@ -114,7 +119,7 @@ class Plotter(object):
         cstats = self.graph_data['1']['comp_stats']
         no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
-        with io.open(os.path.join('data', 'cycles.txt'), 'a',
+        with io.open(os.path.join('plots', 'cycles.txt'), 'a',
                      encoding='utf-8') as outfile:
             text = self.label[:-4]
             print(text)
@@ -378,17 +383,17 @@ if __name__ == '__main__':
         # 'cc',
         # 'ecc',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     for wp in [
-        # 'simple',
+        'simple',
 
-        'en',
-        'de',
+        # 'en',
+        # 'de',
         # 'fr',
-        'es',
+        # 'es',
         # 'ru',
-        'it',
+        # 'it',
         # 'ja',
         # 'nl',
     ]:

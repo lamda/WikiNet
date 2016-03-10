@@ -20,6 +20,11 @@ def read_pickle(fpath):
     return obj
 
 
+def write_pickle(fpath, obj):
+    with open(fpath, 'wb') as outfile:
+        pickle.dump(obj, outfile, -1)
+
+
 def url_escape(title):
     # return title.replace("\\'", "%27")\
     #             .replace('\\"', '%22')\
