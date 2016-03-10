@@ -33,14 +33,14 @@ if __name__ == '__main__':
     #     get_top_n_links_chunks(DATA_DIR, int(sys.argv[1]), int(sys.argv[2]))
     # else:
     #     get_top_n_links_chunks(DATA_DIR)
-    get_top_n_links_chunks(DATA_DIR)
+    # get_top_n_links_chunks(DATA_DIR)
 
-    combine_chunks(DATA_DIR)
+    # combine_chunks(DATA_DIR)
 
     for n_val in [
-        1,
-        'first_p',
-        'lead',
+        # 1,
+        # 'first_p',
+        # 'lead',
         'infobox',
     ]:
         print('---------------- N =', n_val, '----------------')

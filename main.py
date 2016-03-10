@@ -168,8 +168,10 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             'thumb tright',
             'thumb tleft',
             'thumbinner'
-            'thumbimage'
+            'thumbimage',
             'thumbcaption',
+            'thumb tmulti tright',
+            'thumb tmulti tleft',
             'boilerplate metadata'
         ]
 
