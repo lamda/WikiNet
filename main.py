@@ -182,12 +182,25 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         elif label == 'dewiki':
             self.infobox_classes = [
                 'infobox',
+                'toptextcells',
+                'float-right',
+            ]
+        elif label == 'frwiki':
+            self.infobox_classes = [
+                'infobox',
+                'infobox_v2',
+                'taxobox_classification',
             ]
         elif label == 'eswiki':
             self.infobox_classes = [
                 'infobox',
             ]
         elif label == 'itwiki':
+            self.infobox_classes = [
+                'sinottico',
+                'sinottico_annidata',
+            ]
+        elif label == 'nlwiki':
             self.infobox_classes = [
                 'infobox',
             ]
@@ -305,8 +318,10 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             self.table_counter_any += 1
             aclass = [a[1] for a in attrs if a[0] == 'class']
             # if aclass and 'infobox' in aclass[0]:
-            if aclass and any(s in aclass[0] for s in self.infobox_classes):
-                self.tracking_table += 1
+            if aclass:
+                acl = aclass[0].lower()
+                if any(s in acl for s in self.infobox_classes):
+                    self.tracking_table += 1
             if self.tracking_table:
                 self.table_counter += 1
 
@@ -411,7 +426,7 @@ def resolve_redirects(links, title2id, title2redirect):
 
 def get_top_n_links_chunks(data_dir, start=None, stop=None, file_list=None):
     print('getting top n links...')
-    label = data_dir.split(os.pathsep)[1]
+    label = data_dir.split(os.path.sep)[1]
     id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
     title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
@@ -570,7 +585,7 @@ def combine_table_chunks(data_dir):
             #     continue
             outfile.write(unicode(len(class2id[k])) + '\t' +
                           ' '.join(sorted(k)) + '\t' +
-                          ';'.join(map(unicode, class2id[k][:4])) + '\n')
+                          ';'.join(map(unicode, class2id[k][:20])) + '\n')
 
 
 class Graph(object):
@@ -682,11 +697,11 @@ class Graph(object):
             stats['outdegree_median'] = self.basic_stats()
         # # stats['cc'] = self.clustering_coefficient()
         stats['cp_size'], stats['cp_count'] = self.largest_component()
-        stats['pls'], stats['pls_max'] = self.path_lengths()
+        # stats['pls'], stats['pls_max'] = self.path_lengths()
         if self.N == 1:
             stats['singles'], stats['comp_stats'] = self.cycle_components()
-        stats['bow_tie'] = self.bow_tie()
-        stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        # stats['bow_tie'] = self.bow_tie()
+        # stats['bow_tie_changes'] = self.compute_bowtie_changes()
         # stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
