@@ -293,7 +293,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
         elif tag == 'a' and self.tracking_table:
             if self.debug:
-                print('a, 0', tag, attrs)
+                print('a, 1hg', tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
                 a_init = href[0].split('/', 2)[-1].split(':')[0]
@@ -373,14 +373,16 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         return self.infobox_links, self.lead_links, self.first_p_len
 
 
-class WikipediaTableParser(HTMLParser.HTMLParser):
+class WikipediaDivTableParser(HTMLParser.HTMLParser):
     def __init__(self):
         HTMLParser.HTMLParser.__init__(self)
-        self.class2id = {}
+        self.divclass2id = {}
+        self.tableclass2id = {}
         self.pid = None
 
     def reset(self):
-        self.class2id = {}
+        self.divclass2id = {}
+        self.tableclass2id = {}
         self.pid = None
 
     def feed(self, data, pid):
@@ -402,10 +404,17 @@ class WikipediaTableParser(HTMLParser.HTMLParser):
             for aa in aclass:
                 # for a in aa.split(' '):
                 #     self.class2id[a] = self.pid
-                self.class2id[frozenset(aa.split(' '))] = self.pid
+                self.tableclass2id[frozenset(aa.split(' '))] = self.pid
+
+        elif tag == 'div':
+            aclass = [a[1] for a in attrs if a[0] == 'class']
+            for aa in aclass:
+                # for a in aa.split(' '):
+                #     self.class2id[a] = self.pid
+                self.divclass2id[frozenset(aa.split(' '))] = self.pid
 
     def get_data(self):
-        return self.class2id
+        return self.divclass2id, self.tableclass2id
 
 
 def resolve_redirects(links, title2id, title2redirect):
@@ -511,8 +520,8 @@ def combine_chunks(data_dir):
         print()
 
 
-def get_table_classes_chunks(data_dir, start=None, stop=None, file_list=None):
-    print('getting table classes...')
+def get_divtable_classes_chunks(data_dir, start=None, stop=None, file_list=None):
+    print('getting div and table classes...')
     if file_list:
         file_names = file_list
     else:
@@ -523,16 +532,17 @@ def get_table_classes_chunks(data_dir, start=None, stop=None, file_list=None):
         ][start:stop]
     for fidx, file_name in enumerate(file_names):
         print('\r', fidx+1, '/', len(file_names), end='')
-        get_table_classes(data_dir, file_name)
+        get_divtable_classes(data_dir, file_name)
     print()
 
 
-def get_table_classes(data_dir, file_name):
+def get_divtable_classes(data_dir, file_name):
     # extract the table classes
-    parser = WikipediaTableParser()
+    parser = WikipediaDivTableParser()
     file_path = os.path.join(data_dir, 'html', file_name)
     df = pd.read_pickle(file_path)
-    class2id = collections.defaultdict(list)
+    divclass2id = collections.defaultdict(list)
+    tableclass2id = collections.defaultdict(list)
 
     for idx, row in df.iterrows():
         # print(idx, row['pid'], row['title'],
@@ -541,51 +551,51 @@ def get_table_classes(data_dir, file_name):
         #     print('\r', idx, end='')
         if pd.isnull(row['redirects_to']):
             parser.feed(row['content'], row['pid'])
-            d = parser.get_data()
+            divs, tables = parser.get_data()
 
-            # print('-----------------')
-            # for k in d:
-            #     print(k)
-            for k, v in d.items():
-                class2id[k].append(v)
-    file_dir = os.path.join(data_dir, 'html', 'tables')
+            for k, v in divs.items():
+                divclass2id[k].append(v)
+            for k, v in tables.items():
+                tableclass2id[k].append(v)
+    file_dir = os.path.join(data_dir, 'html', 'divtables')
     if not os.path.exists(file_dir):
             os.makedirs(file_dir)
-    write_pickle(os.path.join(file_dir, file_name), class2id)
+    write_pickle(os.path.join(file_dir, file_name), [divclass2id, tableclass2id])
 
 
-def combine_table_chunks(data_dir):
+def combine_divtable_chunks(data_dir):
     print('combining chunks...')
     file_names = [
         f
-        for f in os.listdir(os.path.join(data_dir, 'html', 'tables'))
+        for f in os.listdir(os.path.join(data_dir, 'html', 'divtables'))
         if f.endswith('.obj')
     ]
-    class2id = collections.defaultdict(list)
+    divclass2id = collections.defaultdict(list)
+    tableclass2id = collections.defaultdict(list)
     for fidx, file_name in enumerate(sorted(file_names)):
         print('\r', fidx+1, '/', len(file_names), file_name, end='')
-        d = read_pickle(os.path.join(data_dir, 'html', 'tables', file_name))
-        for k, v in d.items():
-            class2id[k] += v
-
-    yes = [
-        'infobox',
-    ]
-
-    no = [
-        'metadata',
-        'navbox',
-
-    ]
+        fpath = os.path.join(data_dir, 'html', 'divtables', file_name)
+        divs, tables = read_pickle(fpath)
+        for k, v in divs.items():
+            divclass2id[k] += v
+        for k, v in tables.items():
+            tableclass2id[k] += v
 
     with io.open(os.path.join(data_dir, 'tables.tsv'), 'w',
                  encoding='utf-8') as outfile:
-        for k in sorted(class2id, key=lambda k: len(class2id[k]), reverse=True):
-            # if any(d in k for d in yes) or any(d in k for d in no):
-            #     continue
-            outfile.write(unicode(len(class2id[k])) + '\t' +
+        for k in sorted(tableclass2id, key=lambda k: len(tableclass2id[k]),
+                        reverse=True):
+            outfile.write(unicode(len(tableclass2id[k])) + '\t' +
                           ' '.join(sorted(k)) + '\t' +
-                          ';'.join(map(unicode, class2id[k][:20])) + '\n')
+                          ';'.join(map(unicode, tableclass2id[k][:20])) + '\n')
+
+    with io.open(os.path.join(data_dir, 'divs.tsv'), 'w',
+                 encoding='utf-8') as outfile:
+        for k in sorted(divclass2id, key=lambda k: len(divclass2id[k]),
+                        reverse=True):
+            outfile.write(unicode(len(divclass2id[k])) + '\t' +
+                          ' '.join(sorted(k)) + '\t' +
+                          ';'.join(map(unicode, divclass2id[k][:20])) + '\n')
 
 
 class Graph(object):
@@ -1038,12 +1048,10 @@ if __name__ == '__main__':
         # 'nl',
     ]
 
-    data = '''
-
-'''
-    url = 'https://de.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
-    print(url % 'Niall_Canavan')
-    parser = WikipediaHTMLParser(debug=True)
+    data = io.open('test.txt', encoding='utf-8').read()
+    url = 'https://fr.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
+    print(url % 'Theatre')
+    parser = WikipediaHTMLParser('frwiki', debug=True)
     parser.feed(data)
 
     ib_links, lead_links, first_p_len = parser.get_data()

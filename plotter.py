@@ -3,7 +3,6 @@
 from __future__ import division, print_function, unicode_literals
 
 import io
-import itertools
 import matplotlib
 matplotlib.rc('pdf', fonttype=42)
 import matplotlib.pyplot as plt
@@ -34,7 +33,8 @@ class Plotter(object):
         # self.hatches = ['', 'xxx', '///', '---']
         self.hatches = ['----', '/', 'xxx', '', '///', '---']
         self.linestyles = ['-', '--', ':', '-.']
-        self.graph_order = ['1', 'first_p', 'lead', 'infobox']
+        # self.graph_order = ['1', 'first_p', 'lead', 'infobox']
+        self.graph_order = ['1']
         self.graph_data = {}
         self.bowtie_changes = {}
         self.plot_folder = 'plots'
@@ -81,6 +81,21 @@ class Plotter(object):
                 'Liste japanischer Inseln': 'List of islands of Japan',
                 'Kommunikationsmittel': 'Means of communication',
                 'Medium (Kommunikation)': 'Media (Communication)',
+
+                #fr
+                'Connaissance': 'Knowledge',
+                'Notion': 'Notion (philosophy)',
+                'Grec ancien': 'Ancient Greek',
+                'Grec': 'Greek language',
+                'Langues helléniques': 'Hellenic languages',
+                'Isoglosse centum-satem': 'Centum and satem languages',
+                'Isoglosse': 'Isogloss',
+                'Trait (linguistique)': 'Feature (linguistics)',
+                'Linguistique': 'Linguistics',
+                'Discipline (spécialité)': ' Discipline (academia)',
+                'Savoir': 'Knowledge',
+                'Théâtre': 'Theatre',
+                'Théâtre (homonymie)': '',
 
                 # es
                 'Psicología': 'Psychology',
@@ -461,17 +476,17 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        'first_p',
-        'lead',
-        'infobox'
+        # 'first_p',
+        # 'lead',
+        # 'infobox'
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
-        'pls',
+        # 'pls',
         # 'bow_tie',
         # 'bow_tie_alluvial',
     ]
@@ -479,12 +494,12 @@ if __name__ == '__main__':
         'simple',
 
         # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
+        'de',
+        'fr',
+        'es',
         # 'ru',
-        # 'it',
+        'it',
         # 'ja',
-        # 'nl',
+        'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

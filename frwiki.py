@@ -5,8 +5,8 @@ from __future__ import division, print_function, unicode_literals
 import os
 
 from main import get_id_dict, crawl, get_resolved_redirects,\
-    get_top_n_links_chunks, combine_chunks, Graph, get_table_classes_chunks,\
-    combine_table_chunks
+    get_top_n_links_chunks, combine_chunks, Graph, get_divtable_classes_chunks,\
+    combine_divtable_chunks
 
 from crawler import Crawler
 
@@ -26,26 +26,26 @@ if __name__ == '__main__':
 
     # get_resolved_redirects(DATA_DIR)
 
-    # get_table_classes_chunks(DATA_DIR)
+    get_divtable_classes_chunks(DATA_DIR)
+
+    combine_divtable_chunks(DATA_DIR)
+
+    # get_top_n_links_chunks(DATA_DIR)
     #
-    # combine_table_chunks(DATA_DIR)
-
-    get_top_n_links_chunks(DATA_DIR)
-
-    combine_chunks(DATA_DIR)
-
-    for n_val in [
-        1,
-        'first_p',
-        'lead',
-        'infobox',
-    ]:
-        print('---------------- N =', n_val, '----------------')
-        g = Graph(data_dir=DATA_DIR, fname='links',
-                  use_sample=False, refresh=False, N=n_val)
-        g.load_graph(refresh=False)
-        g.compute_stats()
-        g.print_stats()
+    # combine_chunks(DATA_DIR)
+    #
+    # for n_val in [
+    #     1,
+    #     'first_p',
+    #     'lead',
+    #     'infobox',
+    # ]:
+    #     print('---------------- N =', n_val, '----------------')
+    #     g = Graph(data_dir=DATA_DIR, fname='links',
+    #               use_sample=False, refresh=False, N=n_val)
+    #     g.load_graph(refresh=False)
+    #     g.compute_stats()
+    #     g.print_stats()
 
     # end_time = datetime.now()
     # print('Duration: {}'.format(end_time - start_time))
