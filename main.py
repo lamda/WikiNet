@@ -164,37 +164,49 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.debug_found = False
 
         self.skip_divs = [
+            'magnify',
+            'metadata',
+            'noprint',
+            'rellink',
             'thumb',
-            'thumb tright',
-            'thumb tleft',
-            'thumbinner'
-            'thumbimage',
             'thumbcaption',
-            'thumb tmulti tright',
-            'thumb tmulti tleft',
-            'boilerplate metadata'
+            'thumbimage',
+            'thumbinner',
+            'toc',
+
+            # de
+            'navcontent',
+            'navhead',
+            'navframe',
+            'coordinates',
+            'sisterproject',
+            'gallerytext',
         ]
 
         if label == 'enwiki':
             self.infobox_classes = [
                 'infobox',
             ]
+
         elif label == 'dewiki':
             self.infobox_classes = [
                 'infobox',
                 'toptextcells',
                 'float-right',
             ]
+
         elif label == 'frwiki':
             self.infobox_classes = [
                 'infobox',
                 'infobox_v2',
                 'taxobox_classification',
             ]
+
         elif label == 'eswiki':
             self.infobox_classes = [
                 'infobox',
             ]
+
         elif label == 'itwiki':
             self.infobox_classes = [
                 'sinottico',
@@ -204,33 +216,39 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             self.infobox_classes = [
                 'infobox',
             ]
+
+        elif label == 'simplewiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+
         else:
             print('WikipediaParser: label (%s) not supported' % label)
             pdb.set_trace()
 
-        self.file_prefixes = {
-            # https://en.wikipedia.org/wiki/Help:Files
-            'User',
-            'Wikipedia',
-            'File',
-            'MediaWiki',
-            'Template',
-            'Help',
-            'Category',
-            'Portal',
-            'Book',
-            'Draft',
-            'Education_Program',
-            'TimedText',
-            'Module',
-            'Gadget',
-            'Gadget_definition',
-            'Topic',
-            'Special',
-            'Media'
-        }
-        file_prefixes_talk = {fp + '_talk' for fp in self.file_prefixes}
-        self.file_prefixes = self.file_prefixes | file_prefixes_talk
+        # self.file_prefixes = {
+        #     # https://en.wikipedia.org/wiki/Help:Files
+        #     'User',
+        #     'Wikipedia',
+        #     'File',
+        #     'MediaWiki',
+        #     'Template',
+        #     'Help',
+        #     'Category',
+        #     'Portal',
+        #     'Book',
+        #     'Draft',
+        #     'Education_Program',
+        #     'TimedText',
+        #     'Module',
+        #     'Gadget',
+        #     'Gadget_definition',
+        #     'Topic',
+        #     'Special',
+        #     'Media'
+        # }
+        # file_prefixes_talk = {fp + '_talk' for fp in self.file_prefixes}
+        # self.file_prefixes = self.file_prefixes | file_prefixes_talk
 
     def reset(self):
         self.found_links = 0
@@ -282,35 +300,36 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 print('a, 0', tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
-                a_init = href[0].split('/', 2)[-1].split(':')[0]
-                if a_init not in self.file_prefixes:
-                    self.lead_links.append(
-                        href[0].split('/', 2)[-1].split('#')[0]
-                    )
-                    self.tracking_link = True
-                    self.first_link_found = True
-                    self.found_links += 1
+                # a_init = href[0].split('/', 2)[-1].split(':')[0]
+                # if a_init not in self.file_prefixes:
+                self.lead_links.append(
+                    href[0].split('/', 2)[-1].split('#')[0]
+                )
+                self.tracking_link = True
+                self.first_link_found = True
+                self.found_links += 1
 
         elif tag == 'a' and self.tracking_table:
             if self.debug:
                 print('a, 1hg', tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
-                a_init = href[0].split('/', 2)[-1].split(':')[0]
-                if a_init not in self.file_prefixes:
-                    self.infobox_links.append(
-                        href[0].split('/', 2)[-1].split('#')[0]
-                    )
+                # a_init = href[0].split('/', 2)[-1].split(':')[0]
+                # if a_init not in self.file_prefixes:
+                self.infobox_links.append(
+                    href[0].split('/', 2)[-1].split('#')[0]
+                )
 
         elif tag == 'div':
-            if self.debug:
-                print('div OPEN', tag, attrs)
+        #     pass
+            # if self.debug:
+            #     print('div OPEN', tag, attrs)
             self.div_counter_any += 1
-            aclass = [a[1] for a in attrs if a[0] == 'class']
-            if aclass and aclass[0] in self.skip_divs:
-                self.tracking_div += 1
-            if self.tracking_div:
-                self.div_counter += 1
+            # aclass = [a[1] for a in attrs if a[0] == 'class']
+            # if aclass and aclass[0] in self.skip_divs:
+            #     self.tracking_div += 1
+            # if self.tracking_div:
+            #     self.div_counter += 1
 
         elif tag == 'table':
             if self.debug:
@@ -335,13 +354,14 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         if tag == 'a' and self.tracking_link:
             self.tracking_link = False
         elif tag == 'div':
-            if self.debug:
-                print('div CLOSE')
+        #     pass
+            # if self.debug:
+            #     print('div CLOSE')
             self.div_counter_any -= 1
-            if self.tracking_div > 0:
-                self.div_counter -= 1
-                if self.div_counter == 0:
-                    self.tracking_div = min(0, self.tracking_div-1)
+            # if self.tracking_div > 0:
+            #     self.div_counter -= 1
+            #     if self.div_counter == 0:
+            #         self.tracking_div = min(0, self.tracking_div-1)
         elif tag == 'table':
             if self.debug:
                 print('table CLOSE')
@@ -463,7 +483,7 @@ def get_top_n_links(title2id, title2redirect, file_path, label):
     parsed_ib_links, parsed_lead_links, first_p_lens = [], [], []
     for idx, row in df.iterrows():
         # print(idx, row['pid'], row['title'],
-        #       'http://de.wikipedia.org/wiki/' + row['title'])
+        #       'http://es.wikipedia.org/wiki/' + row['title'])
         # if (idx % 1000) == 0:
         #     print('\r', idx, end='')
         if pd.isnull(row['redirects_to']):
@@ -596,6 +616,30 @@ def combine_divtable_chunks(data_dir):
             outfile.write(unicode(len(divclass2id[k])) + '\t' +
                           ' '.join(sorted(k)) + '\t' +
                           ';'.join(map(unicode, divclass2id[k][:20])) + '\n')
+
+
+def cleanup(data_dir):
+    files = [f for f in os.listdir(data_dir) if f.endswith('.gt')]
+    for f in files:
+        os.remove(os.path.join(data_dir, f))
+
+
+def get_id2title_no_redirect(data_dir):
+    print('get_id2title_no_redirect...')
+    file_names = [
+        f
+        for f in os.listdir(os.path.join(data_dir, 'html'))
+        if f.endswith('.obj')
+    ]
+    id2title = {}
+    for fidx, file_name in enumerate(sorted(file_names)):
+        print('\r', fidx+1, '/', len(file_names), file_name, end='')
+        df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
+        for ridx, row in df[pd.isnull(df['redirects_to'])][['pid', 'title']].iterrows():
+            id2title[row['pid']] = row['title']
+    print()
+    fpath = os.path.join('id2title', data_dir.split(os.path.sep)[1] + '.obj')
+    write_pickle(fpath, id2title)
 
 
 class Graph(object):
