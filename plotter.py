@@ -295,8 +295,15 @@ class Plotter(object):
         ax.spines['right'].set_visible(False)
         ax2.spines['left'].set_visible(False)
 
-        # TODO
+        # ax.yaxis.set_visible(False)
+        ax2.yaxis.set_visible(False)
+        ax.yaxis.set_ticks_position('left')
+        ax2.xaxis.set_ticks_position('none')
+        ax2.xaxis.set_ticks_position('none')
+        ax2.set_xticklabels([])
+        ax2.set_xlabel('disconnected')
 
+        # via http://matplotlib.org/examples/pylab_examples/broken_axis.html
         # This looks pretty good, and was fairly painless, but you can get that
         # cut-out diagonal lines look with just a bit more work. The important
         # thing to know here is that in axes coordinates, which are always
@@ -305,15 +312,15 @@ class Plotter(object):
         # appropriate corners of each of our axes, and so long as we use the
         # right transform and disable clipping.
 
-        d = .015  # how big to make the diagonal lines in axes coordinates
+        d = .025  # how big to make the diagonal lines in axes coordinates
         # arguments to pass plot, just so we don't keep repeating them
         kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
-        ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
-        ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+        ax.plot((1-d, 1+d), (-d, +d), **kwargs)        # right-top diagonal
+        ax.plot((1-d, 1+d), (1 - d, 1 + d), **kwargs)  # right-bottom diagonal
 
         kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
-        ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
-        ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
+        ax2.plot((-d, +d), (-d, +d), **kwargs)        # left-top diagonal
+        ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # left-bottom diagonal
 
         # What's cool about this is that now if we vary the distance between
         # ax and ax2 via f.subplots_adjust(hspace=...) or plt.subplot_tool(),
@@ -321,6 +328,7 @@ class Plotter(object):
         # of the spines they are 'breaking'
 
         plt.tight_layout()
+        plt.subplots_adjust(wspace=0.025)
         plt.show()
 
         fpath = os.path.join(self.plot_folder, self.label + '_pls')
@@ -481,12 +489,12 @@ if __name__ == '__main__':
         # 'infobox'
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
-        # 'pls',
+        'pls',
         # 'bow_tie',
         # 'bow_tie_alluvial',
     ]
@@ -494,12 +502,12 @@ if __name__ == '__main__':
         'simple',
 
         # 'en',
-        'de',
-        'fr',
-        'es',
+        # 'de',
+        # 'fr',
+        # 'es',
         # 'ru',
-        'it',
+        # 'it',
         # 'ja',
-        'nl',
+        # 'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)
