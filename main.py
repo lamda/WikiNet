@@ -212,7 +212,18 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 'sinottico',
                 'sinottico_annidata',
             ]
+
+        elif label == 'jawiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+
         elif label == 'nlwiki':
+            self.infobox_classes = [
+                'infobox',
+            ]
+
+        elif label == 'ruwiki':
             self.infobox_classes = [
                 'infobox',
             ]
