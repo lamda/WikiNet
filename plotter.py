@@ -125,6 +125,45 @@ class Plotter(object):
                 'Norma giuridica': 'Precept',
                 'Ordinamento giuridico': 'Legal system',
                 'Diritto': 'Law',
+
+                #nl
+                'Kennis': 'Knowledge',
+                'Weten': 'Know-how',
+                'Leven': 'Life',
+                'Organisme': 'Organism',
+                'Continental plat': 'Continental shelf',
+
+                #ru
+                'Философия': 'Philosophy',
+                'Познание': 'Cognition',
+                'Метод': 'Method (philosophy)',
+                'Систематизация': 'Systematization',
+                'Теория множеств': 'Set theory',
+                'Математика': 'Mathematics',
+                'Наука': 'Science',
+                'Объективность': 'Objectivity (philosophy)',
+                'Объект (философия)': 'Object (philosophy)',
+
+                'Аббревиатура': 'Abbreviation',
+                'Акроним': 'Acronym',
+
+                'Земля': 'Earth',
+                'Солнце': 'Sun',
+                'Звезда': 'Star',
+
+
+                #ja
+                'インド・ヨーロッパ語族': 'Indo-European Languages',
+                'ヨーロッパ': 'Europe',
+                '地球': 'Earth',
+                '人類': 'Humanity',
+                '人間': 'Person',
+                '英語': 'English language',
+
+                '動物': 'Animal',
+                '生物': 'Organism',
+                '植物': 'Plant',
+                '草本': 'Gras',
             }
 
             try:
@@ -146,6 +185,8 @@ class Plotter(object):
                 names = map(url_unescape, names)
                 names_translated = ', '.join(map(translate, names))
                 names = ', '.join(names)
+                if self.label == 'jawiki':
+                    names = '\\begin{CJK}{UTF8}{min} ' + names + '\\end{CJK}'
                 text = ' & %.1f\\%% & %s & %s \\\\\n' %\
                        (cover, names_translated, names)
                 print(text, end='')
@@ -489,25 +530,25 @@ if __name__ == '__main__':
         # 'infobox'
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
-        'pls',
+        # 'pls',
         # 'bow_tie',
         # 'bow_tie_alluvial',
     ]
     for wp in [
-        'simple',
+        # 'simple',
 
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)
