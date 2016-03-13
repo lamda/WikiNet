@@ -145,6 +145,7 @@ def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
     def __init__(self, label, debug=False):
         HTMLParser.HTMLParser.__init__(self)
+        self.label = label
         self.found_links = 0
         self.lead_links = []
         self.infobox_links = []
@@ -181,6 +182,38 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             'coordinates',
             'sisterproject',
             'gallerytext',
+        ]
+
+        self.japars_open = [
+            u'\uff08',
+            u'\u0028',
+            u'\ufe59',
+            u'\u2768',
+            u'\u276a',
+            u'\u207d',
+            u'\u208d',
+            u'\u005b',
+            u'\uff3b',
+            u'\u007b',
+            u'\uff5b',
+            u'\ufe5b',
+            u'\u2774',
+        ]
+
+        self.japars_closed = [
+            u'\uff09',
+            u'\u0029',
+            u'\ufe5a',
+            u'\u2769',
+            u'\u276b',
+            u'\u207e',
+            u'\u208e',
+            u'\u005d',
+            u'\uff3d',
+            u'\u007d',
+            u'\uff5d',
+            u'\ufe5c',
+            u'\u2775',
         ]
 
         if label == 'enwiki':
@@ -280,12 +313,16 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         #     print(tag, attrs)
         #     pdb.set_trace()
 
+        if self.debug and tag == 'a' and self.div_counter_any == 0 and\
+                self.table_counter_any == 0:
+            print('a,', self.parentheses_counter, tag, attrs)
+
         if (tag == 'a' and self.div_counter_any == 0 and
                     self.table_counter_any == 0)\
                 and (self.parentheses_counter == 0 or self.first_link_found)\
                 and self.first_p_found:
-            if self.debug:
-                print('a, 0', tag, attrs)
+            # if self.debug:
+            #     print('a,', self.parentheses_counter, tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
                 # a_init = href[0].split('/', 2)[-1].split(':')[0]
@@ -299,7 +336,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
         elif tag == 'a' and self.tracking_table:
             if self.debug:
-                print('a, 1hg', tag, attrs)
+                print('a, 1', tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
                 # a_init = href[0].split('/', 2)[-1].split(':')[0]
@@ -332,10 +369,10 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             if self.tracking_table:
                 self.table_counter += 1
 
-        elif tag == 'p' and self.div_counter_any < 1 and self.table_counter_any < 1:
-        # elif tag == 'p':
-        #     print(self.div_counter_any, self.table_counter_any)
-            self.first_p_found = True
+        elif tag == 'p':
+            if self.div_counter_any < 1 and self.table_counter_any < 1 and\
+                            not self.first_p_found:
+                self.first_p_found = True
             self.parentheses_counter = 0
 
     def handle_endtag(self, tag):
@@ -366,6 +403,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             self.first_p_len = len(self.lead_links)
 
     def handle_data(self, d):
+        # print(d)
         # if not self.tracking_link:
         #     d = d.strip('\t\x0b\x0c\r ')
         #     if d:
@@ -378,7 +416,14 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             return
         par_diff = d.count('(') + d.count('[') + d.count('{') -\
                    d.count(')') - d.count(']') - d.count('}')
+        if self.label == 'jawiki':
+            par_plus = sum(d.count(po) for po in self.japars_open)
+            par_minus = sum(d.count(pc) for pc in self.japars_closed)
+            par_diff = par_plus - par_minus
+        if self.debug and par_diff != 0:
+            print ('----> ', par_diff, d)
         self.parentheses_counter += par_diff
+
 
     def get_data(self):
         return self.infobox_links, self.lead_links, self.first_p_len
@@ -1083,10 +1128,25 @@ if __name__ == '__main__':
         # 'nl',
     ]
 
-    data = io.open('test.txt', encoding='utf-8').read()
-    url = 'https://fr.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
-    print(url % 'Theatre')
-    parser = WikipediaHTMLParser('frwiki', debug=True)
+    # data = io.open('test.txt', encoding='utf-8').read()
+
+    pid = '71469'
+
+    # import urllib2
+    # url = 'https://ja.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
+    # print(url % pid)
+    # response = urllib2.urlopen(url % pid)
+    # data = response.read().decode('utf-8')
+    # with io.open('test2.txt', 'w', encoding='utf-8') as outfile:
+    #     outfile.write(data)
+
+
+    import json
+    with io.open('test2.txt', encoding='utf-8', errors='ignore') as infile:
+        data_original = json.load(infile)
+    data = data_original['query']['pages'][pid]['revisions'][0]['*']
+
+    parser = WikipediaHTMLParser('jawiki', debug=True)
     parser.feed(data)
 
     ib_links, lead_links, first_p_len = parser.get_data()

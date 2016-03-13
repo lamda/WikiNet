@@ -164,6 +164,14 @@ class Plotter(object):
                 '生物': 'Organism',
                 '植物': 'Plant',
                 '草本': 'Gras',
+
+                '28年': '28',
+                '西暦': 'Anno Domini',
+                'イエス・キリスト': 'Jesus',
+                'ゲルマン語派': 'Germanic languages',
+                '': '',
+                '': '',
+                '': '',
             }
 
             try:
