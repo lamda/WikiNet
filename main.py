@@ -237,30 +237,6 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             print('WikipediaParser: label (%s) not supported' % label)
             pdb.set_trace()
 
-        # self.file_prefixes = {
-        #     # https://en.wikipedia.org/wiki/Help:Files
-        #     'User',
-        #     'Wikipedia',
-        #     'File',
-        #     'MediaWiki',
-        #     'Template',
-        #     'Help',
-        #     'Category',
-        #     'Portal',
-        #     'Book',
-        #     'Draft',
-        #     'Education_Program',
-        #     'TimedText',
-        #     'Module',
-        #     'Gadget',
-        #     'Gadget_definition',
-        #     'Topic',
-        #     'Special',
-        #     'Media'
-        # }
-        # file_prefixes_talk = {fp + '_talk' for fp in self.file_prefixes}
-        # self.file_prefixes = self.file_prefixes | file_prefixes_talk
-
     def reset(self):
         self.found_links = 0
         self.lead_links = []
@@ -304,7 +280,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         #     print(tag, attrs)
         #     pdb.set_trace()
 
-        if (tag == 'a' and self.div_counter == 0 and self.table_counter == 0)\
+        if (tag == 'a' and self.div_counter_any == 0 and
+                    self.table_counter_any == 0)\
                 and (self.parentheses_counter == 0 or self.first_link_found)\
                 and self.first_p_found:
             if self.debug:
@@ -364,6 +341,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
     def handle_endtag(self, tag):
         if tag == 'a' and self.tracking_link:
             self.tracking_link = False
+
         elif tag == 'div':
         #     pass
             # if self.debug:
@@ -373,6 +351,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             #     self.div_counter -= 1
             #     if self.div_counter == 0:
             #         self.tracking_div = min(0, self.tracking_div-1)
+
         elif tag == 'table':
             if self.debug:
                 print('table CLOSE')
@@ -381,6 +360,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 self.table_counter -= 1
                 if self.table_counter == 0:
                     self.tracking_table = min(0, self.tracking_table-1)
+
         elif tag == 'p' and not self.first_p_ended and self.first_p_found:
             self.first_p_ended = True
             self.first_p_len = len(self.lead_links)

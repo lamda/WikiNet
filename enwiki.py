@@ -32,8 +32,7 @@ if __name__ == '__main__':
     #
     # combine_divtable_chunks(DATA_DIR)
 
-    get_id2title_no_redirect(DATA_DIR)
-    sys.exit()
+    # get_id2title_no_redirect(DATA_DIR)
 
     # if len(sys.argv) == 3:
     #     print('restricting to', sys.argv[1], ':', sys.argv[2])

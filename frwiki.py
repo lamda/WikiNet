@@ -24,12 +24,11 @@ if __name__ == '__main__':
 
     # get_resolved_redirects(DATA_DIR)
 
-    get_id2title_no_redirect(DATA_DIR)
-    sys.exit()
+    # get_id2title_no_redirect(DATA_DIR)
 
-    get_divtable_classes_chunks(DATA_DIR)
+    # get_divtable_classes_chunks(DATA_DIR)
 
-    combine_divtable_chunks(DATA_DIR)
+    # combine_divtable_chunks(DATA_DIR)
 
     get_top_n_links_chunks(DATA_DIR)
 

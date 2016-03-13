@@ -95,7 +95,7 @@ class Plotter(object):
                 'Discipline (spécialité)': ' Discipline (academia)',
                 'Savoir': 'Knowledge',
                 'Théâtre': 'Theatre',
-                'Théâtre (homonymie)': '',
+                'Théâtre (homonymie)': 'ERROR',
 
                 # es
                 'Psicología': 'Psychology',
