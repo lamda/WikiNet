@@ -46,6 +46,13 @@ if __name__ == '__main__':
         g = Graph(data_dir=DATA_DIR, fname='links',
                   use_sample=False, refresh=False, N=n_val)
         g.load_graph(refresh=False)
+
+        # from tools import url_escape
+        # (569543, '%D0%90%D0%B1%D0%B1%D1%80%D0%B5%D0%B2%D0%B8%D0%B0%D1%82%D1%83%D1%80%D0%B0')
+        # (247372, '%D0%90%D0%BA%D1%80%D0%BE%D0%BD%D0%B8%D0%BC')
+        # # hugo = [v for v in g.graph.vertices() if g.graph.vp['title'][v] == '%D0%90%D0%B1%D0%B1%D1%80%D0%B5%D0%B2%D0%B8%D0%B0%D1%82%D1%83%D1%80%D0%B0']
+        # v = g.graph.vertex(569543)
+        # pdb.set_trace()
         g.compute_stats()
         g.print_stats()
 

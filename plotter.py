@@ -34,7 +34,7 @@ class Plotter(object):
         self.hatches = ['----', '/', 'xxx', '', '///', '---']
         self.linestyles = ['-', '--', ':', '-.']
         # self.graph_order = ['1', 'first_p', 'lead', 'infobox']
-        self.graph_order = ['1']
+        self.graph_order = n_vals
         self.graph_data = {}
         self.bowtie_changes = {}
         self.plot_folder = 'plots'
@@ -169,6 +169,9 @@ class Plotter(object):
                 '西暦': 'Anno Domini',
                 'イエス・キリスト': 'Jesus',
                 'ゲルマン語派': 'Germanic languages',
+                '人間関係': 'Interpersonal relationship',
+                'アメリカ合衆国': 'United States',
+                'イン・ゴッド・ウィー・トラスト': 'In God we trust',
                 '': '',
                 '': '',
                 '': '',
@@ -187,7 +190,7 @@ class Plotter(object):
             text = self.label[:-4]
             print(text)
             outfile.write(text)
-            for cstat in cstats[:3]:
+            for cstat in cstats[:10]:
                 cover = 100 * cstat['incomp_size'] / no_articles
                 names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
@@ -205,27 +208,22 @@ class Plotter(object):
 
     def plot(self, prop):
         fig, ax = plt.subplots(1, figsize=(6, 3))
-        bar_vals = []
-        for graph_type in self.graph_order:
-            bar_vals += [self.graph_data[graph_name][prop]
-                         for graph_name in self.graphs[graph_type]]
-            print(graph_type)
-            for b, N in zip(bar_vals[-2:], n_vals):
-                print('   ', N, ' ', b)
-        x_vals = [1, 2, 4, 5, 7, 8, 10, 11]
+        bar_vals = [self.graph_data[graph_name][prop]
+                    for graph_name in self.graph_order]
+        x_vals = [1, 2, 3, 4]
         bars = ax.bar(x_vals, bar_vals, align='center')
 
         # Beautification
         for bidx, bar in enumerate(bars):
             bar.set_fill(False)
-            bar.set_hatch(self.hatches[bidx % 2])
-            bar.set_edgecolor(self.colors[int(bidx/2)])
+            bar.set_hatch(self.hatches[bidx])
+            bar.set_edgecolor(self.colors[bidx])
 
-        ax.set_xlim(0.25, 3 * len(self.graphs))
+        ax.set_xlim(0.25, 3 * len(self.graph_order))
         ax.set_xticks([x - 0.25 for x in x_vals])
         for tic in ax.xaxis.get_major_ticks():
             tic.tick1On = tic.tick2On = False
-        labels = [g for k in self.graph_order for g in self.graph_labels[k]]
+        labels = [g for g in self.graph_order]
         ax.set_xticklabels(labels, rotation='-50', ha='left')
 
         if prop == 'cc':
@@ -533,13 +531,13 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        # 'first_p',
-        # 'lead',
-        # 'infobox'
+        'first_p',
+        'lead',
+        'infobox'
     ]
     to_plot = [
-        'cycles',
-        # 'cp_count',
+        # 'cycles',
+        'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
@@ -548,15 +546,15 @@ if __name__ == '__main__':
         # 'bow_tie_alluvial',
     ]
     for wp in [
-        # 'simple',
+        'simple',
 
-        'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'it',
-        'ja',
-        'nl',
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

@@ -30,19 +30,18 @@ if __name__ == '__main__':
     # combine_divtable_chunks(DATA_DIR)
 
     # get_id2title_no_redirect(DATA_DIR)
-    # sys.exit()
 
-    get_top_n_links_chunks(DATA_DIR)
-
-    combine_chunks(DATA_DIR)
-
-    cleanup(DATA_DIR)
+    # get_top_n_links_chunks(DATA_DIR)
+    #
+    # combine_chunks(DATA_DIR)
+    #
+    # cleanup(DATA_DIR)
 
     for n_val in [
         1,
-        'first_p',
-        'lead',
-        'infobox',
+        # 'first_p',
+        # 'lead',
+        # 'infobox',
     ]:
         print('---------------- N =', n_val, '----------------')
         g = Graph(data_dir=DATA_DIR, fname='links',
