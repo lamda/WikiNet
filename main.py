@@ -458,6 +458,33 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         return self.infobox_links, self.lead_links, self.first_p_len
 
 
+class WikipediaHTMLAllParser(HTMLParser.HTMLParser):
+    def __init__(self):
+        HTMLParser.HTMLParser.__init__(self)
+        self.links = []
+
+    def reset(self):
+        self.links = []
+        HTMLParser.HTMLParser.reset(self)
+
+    def feed(self, data):
+        self.reset()
+
+        for line in data.splitlines():
+            HTMLParser.HTMLParser.feed(self, line)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            href = [a[1] for a in attrs if a[0] == 'href']
+            if href and href[0].startswith('/wiki/'):
+                self.links.append(
+                    href[0].split('/', 2)[-1].split('#')[0]
+                )
+
+    def get_data(self):
+        return self.links
+
+
 class WikipediaDivTableParser(HTMLParser.HTMLParser):
     def __init__(self):
         HTMLParser.HTMLParser.__init__(self)
@@ -683,6 +710,64 @@ def combine_divtable_chunks(data_dir):
                           ';'.join(map(unicode, divclass2id[k][:20])) + '\n')
 
 
+def get_all_links_chunks(data_dir, start=None, stop=None, file_list=None):
+    print('getting all links...')
+    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+    title2id = {v: k for k, v in id2title.items()}
+    title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
+    if file_list:
+        file_names = file_list
+    else:
+        file_names = [
+            f
+            for f in os.listdir(os.path.join(data_dir, 'html'))
+            if f.endswith('.obj')
+        ][start:stop]
+    for fidx, file_name in enumerate(file_names):
+        print('\r', fidx+1, '/', len(file_names), end='')
+        get_all_links(title2id, title2redirect, data_dir, file_name)
+    print()
+
+
+def get_all_links(title2id, title2redirect, data_dir, file_name):
+    parser = WikipediaHTMLAllParser()
+    file_path = os.path.join(data_dir, 'html', file_name)
+    df = pd.read_pickle(file_path)
+    pid2links = {}
+
+    for idx, row in df.iterrows():
+        if pd.isnull(row['redirects_to']):
+            parser.feed(row['content'])
+            links = parser.get_data()
+            pid2links[row['pid']] = map(
+                unicode,
+                resolve_redirects(links, title2id, title2redirect)
+            )
+
+    file_dir = os.path.join(data_dir, 'html', 'alllinks')
+    if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+    write_pickle(os.path.join(file_dir, file_name), pid2links)
+
+
+def combine_all_chunks(data_dir):
+    print('combining all chunks...')
+    file_names = [
+        f
+        for f in os.listdir(os.path.join(data_dir, 'html', 'alllinks'))
+        if f.endswith('.obj')
+    ]
+    with io.open(os.path.join(data_dir, 'alllinks.tsv'), 'w',
+                 encoding='utf-8') as outfile:
+        for fidx, file_name in enumerate(sorted(file_names)):
+            print('\r', fidx+1, '/', len(file_names), file_name, end='')
+            fpath = os.path.join(data_dir, 'html', 'alllinks', file_name)
+            pid2links = read_pickle(fpath)
+
+            for pid, links in pid2links.items():
+                outfile.write(unicode(pid) + u'\t' + u';'.join(links) + '\n')
+
+
 def cleanup(data_dir):
     files = [f for f in os.listdir(data_dir) if f.endswith('.gt')]
     for f in files:
@@ -718,6 +803,7 @@ class Graph(object):
         self.use_sample = use_sample
         self.graph_name = fname if not use_sample else fname + '_sample'
         self.graph_file_path = os.path.join(self.data_dir,
+                                            ('all' if self.N == 'all' else '') +
                                             self.graph_name + '.tsv')
         self.N = N
         self.gt_file_path = os.path.join(
@@ -752,10 +838,16 @@ class Graph(object):
         nodes = set()
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
+                if self.N == 'all':
+                    node, nbs = line.strip('\n').split('\t')
+                    lead_nbs = None
+                else:
+                    node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
                 nodes.add(node)
                 if self.N == 'infobox' and ib_nbs:
                     nodes |= set(ib_nbs.split(';'))
+                elif self.N == 'all' and nbs:
+                    nodes |= set(nbs.split(';'))
                 elif lead_nbs:
                     lead_nbs = lead_nbs.split(';')
                     if self.N == 1:
@@ -775,10 +867,16 @@ class Graph(object):
         edges = []
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
-                node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
+                if self.N == 'all':
+                    node, all_nbs = line.strip('\n').split('\t')
+                    lead_nbs = None
+                else:
+                    node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
                 nbs = []
                 if self.N == 'infobox' and ib_nbs:
                     nbs = set(ib_nbs.split(';'))
+                elif self.N == 'all' and all_nbs:
+                    nbs = set(all_nbs.split(';'))
                 elif lead_nbs:
                     lead_nbs = lead_nbs.split(';')
                     if self.N == 1:
@@ -1173,7 +1271,8 @@ if __name__ == '__main__':
     data = data_original['query']['pages'][pid]['revisions'][0]['*']
 
     # parser = WikipediaHTMLParser(wiki + 'wiki', debug=True)
-    parser = WikipediaHTMLParser(wiki + 'wiki', debug=False)
+    # parser = WikipediaHTMLParser(wiki + 'wiki', debug=False)
+    parser = WikipediaHTMLAllParser(wiki + 'wiki')
     parser.feed(data)
 
     ib_links, lead_links, first_p_len = parser.get_data()

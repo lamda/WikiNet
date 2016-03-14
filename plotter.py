@@ -48,6 +48,8 @@ class Plotter(object):
 
         if 'cycles' in to_plot:
             self.print_cycles()
+        if 'link_counts' in to_plot:
+            self.print_link_counts()
         if 'cp_size' in to_plot:
             self.plot('cp_size')
         if 'cp_count' in to_plot:
@@ -81,6 +83,8 @@ class Plotter(object):
                 'Liste japanischer Inseln': 'List of islands of Japan',
                 'Kommunikationsmittel': 'Means of communication',
                 'Medium (Kommunikation)': 'Media (Communication)',
+                'Druckerzeugnis': 'Printed matter',
+                'Zeitschrift': 'Magazine',
 
                 #fr
                 'Connaissance': 'Knowledge',
@@ -94,8 +98,8 @@ class Plotter(object):
                 'Linguistique': 'Linguistics',
                 'Discipline (spécialité)': ' Discipline (academia)',
                 'Savoir': 'Knowledge',
-                'Théâtre': 'Theatre',
-                'Théâtre (homonymie)': 'ERROR',
+                'Âme': 'Soul',
+                'Principe (philosophie)': 'Principle',
 
                 # es
                 'Psicología': 'Psychology',
@@ -131,7 +135,7 @@ class Plotter(object):
                 'Weten': 'Know-how',
                 'Leven': 'Life',
                 'Organisme': 'Organism',
-                'Continental plat': 'Continental shelf',
+                'Continentaal plat': 'Continental shelf',
 
                 #ru
                 'Философия': 'Philosophy',
@@ -150,7 +154,6 @@ class Plotter(object):
                 'Земля': 'Earth',
                 'Солнце': 'Sun',
                 'Звезда': 'Star',
-
 
                 #ja
                 'インド・ヨーロッパ語族': 'Indo-European Languages',
@@ -172,9 +175,12 @@ class Plotter(object):
                 '人間関係': 'Interpersonal relationship',
                 'アメリカ合衆国': 'United States',
                 'イン・ゴッド・ウィー・トラスト': 'In God we trust',
-                '': '',
-                '': '',
-                '': '',
+                'メソポタミア': 'Mesopotamia',
+                'チグリス川': 'Tigris',
+                'トルコ': 'Turkey',
+                '西アジア': 'Western Asia',
+                'アジア': 'Asia',
+                'アッシリア': 'Assyria'
             }
 
             try:
@@ -190,7 +196,7 @@ class Plotter(object):
             text = self.label[:-4]
             print(text)
             outfile.write(text)
-            for cstat in cstats[:10]:
+            for cstat in cstats[:3]:
                 cover = 100 * cstat['incomp_size'] / no_articles
                 names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
@@ -206,11 +212,29 @@ class Plotter(object):
             print(text, end='')
             outfile.write(text)
 
+    def print_link_counts(self):
+        # 'outdegree_av'
+        # 'outdegree_median'
+
+         with io.open(os.path.join('plots', 'outdegrees.txt'), 'a',
+                     encoding='utf-8') as outfile:
+            text = self.label[:-4]
+            print(text)
+            outfile.write(text + ' & ')
+            for graph_name in self.graph_order:
+                av = float(self.graph_data[graph_name]['outdegree_av'])
+                md = float(self.graph_data[graph_name]['outdegree_median'])
+                text = '%.2f & %.2f' % (av, md)
+                print(text)
+                outfile.write(text)
+            outfile.write(' \\\\\n')
+
+
     def plot(self, prop):
         fig, ax = plt.subplots(1, figsize=(6, 3))
         bar_vals = [self.graph_data[graph_name][prop]
                     for graph_name in self.graph_order]
-        x_vals = [1, 2, 3, 4]
+        x_vals = range(len(self.graph_order))
         bars = ax.bar(x_vals, bar_vals, align='center')
 
         # Beautification
@@ -219,7 +243,7 @@ class Plotter(object):
             bar.set_hatch(self.hatches[bidx])
             bar.set_edgecolor(self.colors[bidx])
 
-        ax.set_xlim(0.25, 3 * len(self.graph_order))
+        ax.set_xlim(-0.5, len(self.graph_order) - 0.5)
         ax.set_xticks([x - 0.25 for x in x_vals])
         for tic in ax.xaxis.get_major_ticks():
             tic.tick1On = tic.tick2On = False
@@ -231,7 +255,6 @@ class Plotter(object):
             ax.set_ylim(0, 0.5)
         elif prop == 'cp_count':
             ylabel = '# of components'
-            # ax.set_ylim(0, 110)
         else:
             ylabel = 'Share of Nodes (%)'
             ax.set_ylim(0, 110)
@@ -531,13 +554,15 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        'first_p',
-        'lead',
-        'infobox'
+        # 'first_p',
+        # 'lead',
+        # 'infobox',
+        # 'all'
     ]
     to_plot = [
-        # 'cycles',
-        'cp_count',
+        'cycles',
+        # 'link_counts',
+        # 'cp_count',
         # 'cp_size',
         # 'cc',
         # 'ecc',
@@ -546,15 +571,15 @@ if __name__ == '__main__':
         # 'bow_tie_alluvial',
     ]
     for wp in [
-        'simple',
+        # 'simple',
 
         # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)
