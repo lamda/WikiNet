@@ -855,7 +855,16 @@ def parse(start=None, stop=None):
 
 
 def combine_parsed_chunks():
-    prefixes = ['ja', 'en', 'de', 'fr', 'es', 'ru', 'it', 'nl']
+    prefixes = [
+        # 'ja',
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'nl'
+    ]
     file_names = [f for f in os.listdir(pageview_dir_filtered)
                   if f.endswith('.obj')]
     file_names = sorted(file_names)
@@ -870,7 +879,7 @@ def combine_parsed_chunks():
             print('        merging...')
             for k, v in d2.items():
                 d[k] += v
-        fpath = os.path.join(pageview_dir_filtered, 'id2title-' + prefix + 'obj')
+        fpath = os.path.join(pageview_dir_filtered, 'id2title-' + prefix + '.obj')
         write_pickle(fpath, d)
 
 
