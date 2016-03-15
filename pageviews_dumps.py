@@ -10,6 +10,7 @@ import os
 import pdb
 import re
 import sys
+import time
 import urllib2
 
 
@@ -854,29 +855,31 @@ def parse(start=None, stop=None):
 
 
 def combine_parsed_chunks():
+    prefixes = ['ja', 'en', 'de', 'fr', 'es', 'ru', 'it', 'nl']
     file_names = [f for f in os.listdir(pageview_dir_filtered)
                   if f.endswith('.obj')]
     file_names = sorted(file_names)
-    d = read_pickle(os.path.join(pageview_dir_filtered, file_names[0]))
-    for fidx, file_name in enumerate(file_names[1:]):
-        print(fidx+2, '/', len(file_names), file_name)
-        d2 = read_pickle(os.path.join(pageview_dir_filtered, file_name))
-        for prefix in d2:
-            for k, v in d2[prefix].items():
-                d[prefix][k] += v
-    print()
-
-    for prefix in d:
+    for prefix in prefixes:
         print(prefix)
-        fpath = os.path.join(pageview_dir_filtered,
-                             'id2title-' + prefix + 'obj')
-        write_pickle(fpath, d[prefix])
+        d = read_pickle(os.path.join(pageview_dir_filtered, file_names[0]))[prefix]
+        for fidx, file_name in enumerate(file_names[1:]):
+            print('    ', fidx+2, '/', len(file_names), file_name,
+                  time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+            print('        reading file...')
+            d2 = read_pickle(os.path.join(pageview_dir_filtered, file_name))[prefix]
+            print('        merging...')
+            for k, v in d2.items():
+                d[k] += v
+        fpath = os.path.join(pageview_dir_filtered, 'id2title-' + prefix + 'obj')
+        write_pickle(fpath, d)
 
 
 if __name__ == '__main__':
     # download()
     # check_hashes()
 
-    if len(sys.argv) < 3:
-        print('ERROR')
-    parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
+    # if len(sys.argv) < 3:
+    #     print('ERROR')
+    # parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
+
+    combine_parsed_chunks()

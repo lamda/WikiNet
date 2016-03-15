@@ -41,10 +41,10 @@ if __name__ == '__main__':
     # cleanup(DATA_DIR)
 
     for n_val in [
-        # 1,
-        # 'first_p',
-        # 'lead',
-        # 'infobox',
+        1,
+        'first_p',
+        'lead',
+        'infobox',
         'all',
     ]:
         print('---------------- N =', n_val, '----------------')
@@ -58,8 +58,9 @@ if __name__ == '__main__':
         # # hugo = [v for v in g.graph.vertices() if g.graph.vp['title'][v] == '%D0%90%D0%B1%D0%B1%D1%80%D0%B5%D0%B2%D0%B8%D0%B0%D1%82%D1%83%D1%80%D0%B0']
         # v = g.graph.vertex(569543)
         # pdb.set_trace()
-        g.compute_stats()
-        g.print_stats()
+        # g.compute_stats()
+        g.update_stats()
+        # g.print_stats()
 
     # end_time = datetime.now()
     # print('Duration: {}'.format(end_time - start_time))

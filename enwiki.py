@@ -10,7 +10,7 @@ import HTMLParser
 import pandas as pd
 import io
 
-# from main import *
+from main import *
 
 # from crawler import Crawler
 
@@ -21,7 +21,7 @@ WIKI_CODE = 'en'
 DUMP_DATE = '20160204'
 
 
-def resolve_redirects(links, title2id, title2redirect):
+def resolve_redirects2(links, title2id, title2redirect):
     result = []
     for link in links:
         try:
@@ -37,7 +37,7 @@ def resolve_redirects(links, title2id, title2redirect):
     return result
 
 
-class WikipediaHTMLAllParser(HTMLParser.HTMLParser):
+class WikipediaHTMLAllParser2(HTMLParser.HTMLParser):
     def __init__(self):
         HTMLParser.HTMLParser.__init__(self)
         self.links = []
@@ -64,7 +64,7 @@ class WikipediaHTMLAllParser(HTMLParser.HTMLParser):
         return self.links
 
 
-def get_all_links_chunks(data_dir, start=None, stop=None, file_list=None):
+def get_all_links_chunks2(data_dir, start=None, stop=None, file_list=None):
     print('getting all links...')
     id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
     title2id = {v: k for k, v in id2title.items()}
@@ -83,16 +83,17 @@ def get_all_links_chunks(data_dir, start=None, stop=None, file_list=None):
             if f.endswith('.obj')
         ][start:stop]
     file_names = sorted(file_names)
-    file_names.reverse()  # TODO
+
     for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names), file_name, end='')
+        print(fidx+1, '/', len(file_names), file_name)
         if file_name in present_files:
+            print('    present')
             continue
         get_all_links(title2id, title2redirect, data_dir, file_name)
     print()
 
 
-def get_all_links(title2id, title2redirect, data_dir, file_name):
+def get_all_links2(title2id, title2redirect, data_dir, file_name):
     parser = WikipediaHTMLAllParser()
     file_path = os.path.join(data_dir, 'html', file_name)
     df = pd.read_pickle(file_path)
@@ -154,26 +155,26 @@ if __name__ == '__main__':
     #
     # combine_chunks(DATA_DIR)
 
-    get_all_links_chunks(DATA_DIR)
-
-    combine_all_chunks(DATA_DIR)
+    # get_all_links_chunks(DATA_DIR)
+    #
+    # combine_all_chunks(DATA_DIR)
 
     # cleanup(DATA_DIR)
 
-    # for n_val in [
-    #     # 1,
-    #     # 'first_p',
-    #     # 'lead',
-    #     # 'infobox',
-    #     'all',
-    # ]:
-    #     print('---------------- N =', n_val, '----------------')
-    #     g = Graph(data_dir=DATA_DIR, fname='links',
-    #               use_sample=False, refresh=False, N=n_val)
-    #     g.load_graph(refresh=False)
-    #     g.compute_stats()
-    #     # g.update_stats()
-    #     g.print_stats()
+    for n_val in [
+        1,
+        'first_p',
+        'lead',
+        'infobox',
+        # 'all',
+    ]:
+        print('---------------- N =', n_val, '----------------')
+        g = Graph(data_dir=DATA_DIR, fname='links',
+                  use_sample=False, refresh=False, N=n_val)
+        g.load_graph(refresh=False)
+        # g.compute_stats()
+        g.update_stats()
+        # g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

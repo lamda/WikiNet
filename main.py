@@ -932,9 +932,10 @@ class Graph(object):
 
         # stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
         #     stats['outdegree_median'] = self.basic_stats()
-        stats['pls'], stats['pls_max'] = self.path_lengths()
+        # stats['pls'], stats['pls_max'] = self.path_lengths()
         # stats['lc_ecc'] = self.eccentricity()
         # stats['bow_tie'] = self.bow_tie()
+        stats['bow_tie'] = self.bow_tie2()
         # stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
@@ -1140,6 +1141,132 @@ class Graph(object):
             for node in component:
                 vp_bowtie[self.graph.vertex(node)] = label
         self.graph.vp['bowtie'] = vp_bowtie
+        self.save()
+
+        bow_tie = [inc, scc, outc, in_tendril, out_tendril, tube, other]
+        bow_tie = [100 * len(x)/self.graph.num_vertices() for x in bow_tie]
+        return bow_tie
+
+    def bow_tie2(self):
+        print('bow tie2')
+
+        all_nodes = set(int(n) for n in self.graph.vertices())
+        component, histogram = gt.label_components(self.graph)
+
+        # Core, In and Out
+        label_of_largest_component = np.argmax(histogram)
+        largest_component = (component.a == label_of_largest_component)
+        lcp = gt.GraphView(self.graph, vfilt=largest_component)
+        scc = set([int(n) for n in lcp.vertices()])
+        scc_node = random.sample(scc, 1)[0]
+        graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
+        graph_undirected = gt.GraphView(self.graph, directed=False)
+
+        outc = np.nonzero(gt.label_out_component(self.graph, scc_node).a)[0]
+        inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
+        outc = set(outc) - scc
+        inc = set(inc) - scc
+
+        # Tubes, Tendrils and Other
+        wcc = set(
+            np.nonzero(gt.label_out_component(graph_undirected, scc_node).a)[0]
+        )
+        tube = set()
+        out_tendril = set()
+        in_tendril = set()
+        other = all_nodes - wcc
+        remainder = wcc - inc - outc - scc
+        num_remainder = len(remainder)
+
+        def find_path(node, to_find, to_find_idx, visited, path, debug=False):
+            if debug:
+                print('find_path at', node)
+            if int(node) in to_find:
+                if debug:
+                    print('    found to_find, returning', path)
+                return True
+            visited.add(node)
+            for nb in node.out_neighbours():
+                if nb in visited:
+                    continue
+                try:
+                    reach = node2reach[int(nb)][to_find_idx]
+                    if reach == False:
+                        if debug:
+                            print('    found previously visited node (%d, False)' % nb)
+                        continue
+                    if reach == True:
+                        if debug:
+                            print('    found previously visited node (%d, True)' % nb)
+                        return path
+                except KeyError:
+                    pass
+                if find_path(nb, to_find, to_find_idx, visited, path):
+                    if debug:
+                        print('    find path successful at node', int(nb))
+                    path.append(int(nb))
+                    return path
+            if debug:
+                print('    nothing found')
+            return False
+
+        # 16384 TUBE
+        node2reach = {node: [None, None] for node in remainder}  # (inc, outc)
+        for nidx, node in enumerate(remainder):
+            print('\r', nidx+1, '/', num_remainder, end='')
+            predecessors = find_path(graph_reversed.vertex(node), inc, 0, set(), list())
+            if predecessors != False:
+                node2reach[node][0] = True
+                if predecessors and predecessors[0] not in inc:
+                    node2reach[predecessors[0]][0] = True
+                for p in predecessors[1:]:
+                    node2reach[p][0] = True
+
+            successors = find_path(self.graph.vertex(node), outc, 1, set(), list())
+            if successors != False:
+                node2reach[node][1] = True
+                if successors and successors[0] not in outc:
+                    node2reach[predecessors[0]][1] = True
+                for s in successors[1:]:
+                    node2reach[s][1] = True
+            # print(predecessors)
+            # print(successors)
+            # print(self.graph.vp['bowtie'][node])
+            # pdb.set_trace()
+        print()
+
+        for nidx, (node, [inc_reach, outc_reach]) in enumerate(node2reach.items()):
+            print('\r', nidx+1, '/', len(node2reach), end='')
+            if inc_reach:
+                if outc_reach:
+                    tube.add(node)
+                else:
+                    in_tendril.add(node)
+            elif outc_reach:
+                out_tendril.add(node)
+            else:
+                other.add(node)
+        print()
+
+        vp_bowtie = self.graph.new_vertex_property('string')
+        for component, label in [
+            (inc, 'IN'),
+            (scc, 'SCC'),
+            (outc, 'OUT'),
+            (in_tendril, 'TL_IN'),
+            (out_tendril, 'TL_OUT'),
+            (tube, 'TUBE'),
+            (other, 'OTHER')
+        ]:
+            for node in component:
+                vp_bowtie[self.graph.vertex(node)] = label
+        # self.graph.vp['bowtie2'] = vp_bowtie
+        self.graph.vp['bowtie'] = vp_bowtie
+
+        # for nidx, node in enumerate(self.graph.vertices()):
+        #     if self.graph.vp['bowtie'][node] != self.graph.vp['bowtie2'][node]:
+        #         print(node, self.graph.vp['bowtie'][node], self.graph.vp['bowtie2'][node])
+        #         pdb.set_trace()
         self.save()
 
         bow_tie = [inc, scc, outc, in_tendril, out_tendril, tube, other]

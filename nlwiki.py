@@ -41,18 +41,19 @@ if __name__ == '__main__':
     # cleanup(DATA_DIR)
 
     for n_val in [
-        # 1,
-        # 'first_p',
-        # 'lead',
-        # 'infobox',
+        1,
+        'first_p',
+        'lead',
+        'infobox',
         'all',
     ]:
         print('---------------- N =', n_val, '----------------')
         g = Graph(data_dir=DATA_DIR, fname='links',
                   use_sample=False, refresh=False, N=n_val)
         g.load_graph(refresh=False)
-        g.compute_stats()
-        g.print_stats()
+        # g.compute_stats()
+        g.update_stats()
+        # g.print_stats()
 
     # end_time = datetime.now()
     # print('Duration: {}'.format(end_time - start_time))
