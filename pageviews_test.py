@@ -33,7 +33,7 @@ def write_pickle(fpath, obj):
 
 
 # Limit the number of threads.
-pool = threading.BoundedSemaphore(15)  # can be higher
+pool = threading.BoundedSemaphore(50)  # can be higher
 
 
 def worker(u, title, views):
@@ -71,6 +71,8 @@ def req():
                 # if i > 10:
                 #     break
                 # print some progress
+                if (i % 1000) == 0:
+                    print i
                 if i % 10000 == 0:
                     #print time for the iteration
                     seconds = time.clock() - start_time_iteration
