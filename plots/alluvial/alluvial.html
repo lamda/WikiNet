@@ -189,13 +189,19 @@ nodes.append('svg:rect')
             return y(n.offsetValue) + i * padding + 10;
         })
         .attr('x', function(n) {
-            if (n.id > 20)
+            if (n.id > 27)
                 return "-100"
             else
                 return "0"
         })
         .attr('width', x.rangeBand())
-        .attr('height', function(n) { return y(n.nodeValue) })
+        //.attr('height', function(n) { return y(n.nodeValue) })
+        .attr('height', function(n) {  // make sure all nodes have at least 1px
+             if (n.nodeValue > 1.0)
+                return Math.max(y(1000), y(n.nodeValue))
+             else
+                 return y(n.nodeValue)
+         })
         .append('svg:title')
         .text(function(n) { return n.nodeName })
 
@@ -206,7 +212,7 @@ nodes.append('svg:text')
                 return 245;
             },
             x: function(d) {
-                if (d.id > 20)
+                if (d.id > 27)
                     return x(0) - w / 7.5 * gapratio - 100
                 else
                     return x(0) - w / 7.5 * gapratio
@@ -228,9 +234,9 @@ nodes.append('svg:text')
                 if (d.id == 15)
                     return "Entire Lead";
                 if (d.id == 22)
-                    return "Infobox";   
+                    return "Entire Article";   
                 if (d.id == 29)
-                    return "N = 20";
+                    return "Infobox";
                 }
             else
                 return '';})        
@@ -241,7 +247,7 @@ nodes.append('svg:text')
                 return y(d.nodeValue/2 + d.offsetValue) + i * padding + 5;
             },
             x: function(d) {
-                if (d.id > 20)
+                if (d.id > 27)
                     return x(0) - w / 7.5 * gapratio - 100
                 else
                     return x(0) - w / 7.5 * gapratio

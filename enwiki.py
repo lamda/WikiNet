@@ -111,7 +111,7 @@ def get_all_links2(title2id, title2redirect, data_dir, file_name):
     write_pickle(os.path.join(file_dir, file_name), pid2links)
 
 
-def combine_all_chunks(data_dir):
+def combine_all_chunks2(data_dir):
     print('combining all chunks...')
     file_names = [
         f
@@ -166,7 +166,7 @@ if __name__ == '__main__':
         'first_p',
         'lead',
         'infobox',
-        # 'all',
+        'all',
     ]:
         print('---------------- N =', n_val, '----------------')
         g = Graph(data_dir=DATA_DIR, fname='links',

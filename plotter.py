@@ -554,13 +554,13 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        # 'first_p',
-        # 'lead',
-        # 'infobox',
-        # 'all'
+        'first_p',
+        'lead',
+        'all',
+        'infobox',
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'link_counts',
         # 'cp_count',
         # 'cp_size',
@@ -568,18 +568,18 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     for wp in [
         # 'simple',
 
-        'en',
-        'de',
+        # 'en',
+        # 'de',
         'fr',
-        'es',
-        'ru',
-        'it',
-        'ja',
-        'nl',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

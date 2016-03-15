@@ -935,8 +935,8 @@ class Graph(object):
         # stats['pls'], stats['pls_max'] = self.path_lengths()
         # stats['lc_ecc'] = self.eccentricity()
         # stats['bow_tie'] = self.bow_tie()
-        stats['bow_tie'] = self.bow_tie2()
-        # stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        # stats['bow_tie'] = self.bow_tie2()
+        stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
@@ -1282,6 +1282,8 @@ class Graph(object):
             prev_N = 1
         elif self.N == 'lead':
             prev_N = 'first_p'
+        elif self.N == 'all':
+            prev_N = 'lead'
         prev_gt_file_path = self.gt_file_path.split('_')[0] +\
             '_' + unicode(prev_N) + '.gt'
         prev_graph = gt.load_graph(prev_gt_file_path, fmt='gt')

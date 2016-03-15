@@ -866,7 +866,7 @@ def combine_parsed_chunks():
         'nl'
     ]
     file_names = [f for f in os.listdir(pageview_dir_filtered)
-                  if f.endswith('.obj')]
+                  if f.endswith('.obj') and not f.startswith('id2title')]
     file_names = sorted(file_names)
     for prefix in prefixes:
         print(prefix)
