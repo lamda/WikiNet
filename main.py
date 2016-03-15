@@ -671,7 +671,7 @@ def get_divtable_classes(data_dir, file_name):
                 tableclass2id[k].append(v)
     file_dir = os.path.join(data_dir, 'html', 'divtables')
     if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
+        os.makedirs(file_dir)
     write_pickle(os.path.join(file_dir, file_name), [divclass2id, tableclass2id])
 
 
@@ -802,10 +802,10 @@ class Graph(object):
             os.makedirs(self.stats_folder)
         self.use_sample = use_sample
         self.graph_name = fname if not use_sample else fname + '_sample'
+        self.N = N
         self.graph_file_path = os.path.join(self.data_dir,
                                             ('all' if self.N == 'all' else '') +
                                             self.graph_name + '.tsv')
-        self.N = N
         self.gt_file_path = os.path.join(
             self.data_dir,
             self.graph_name + '_' + str(self.N) + suffix + '.gt'

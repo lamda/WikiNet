@@ -573,7 +573,7 @@ if __name__ == '__main__':
     for wp in [
         # 'simple',
 
-        # 'en',
+        'en',
         'de',
         'fr',
         'es',
