@@ -935,7 +935,7 @@ class Graph(object):
         # stats['pls'], stats['pls_max'] = self.path_lengths()
         # stats['lc_ecc'] = self.eccentricity()
         # stats['bow_tie'] = self.bow_tie()
-        # stats['bow_tie'] = self.bow_tie2()
+        stats['bow_tie'] = self.bow_tie2()
         stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')

@@ -30,6 +30,16 @@ class Plotter(object):
             (0.8980392156862745, 0.7686274509803922, 0.5803921568627451),
             (0.7019607843137254, 0.7019607843137254, 0.7019607843137254)
         ]
+        self.label2language = {
+            'en': 'English',
+            'de': 'German',
+            'fr': 'French',
+            'es': 'Spanish',
+            'ru': 'Russian',
+            'nl': 'Dutch',
+            'it': 'Italian',
+            'ja': 'Japanese',
+        }
         # self.hatches = ['', 'xxx', '///', '---']
         self.hatches = ['----', '/', 'xxx', '', '///', '---']
         self.linestyles = ['-', '--', ':', '-.']
@@ -54,6 +64,8 @@ class Plotter(object):
             self.plot('cp_size')
         if 'cp_count' in to_plot:
             self.plot('cp_count')
+        if 'outdegree_av' in to_plot:
+            self.plot('outdegree_av')
         if 'cc' in to_plot:
             self.plot('cc')
         if 'ecc' in to_plot:
@@ -188,16 +200,6 @@ class Plotter(object):
             except KeyError:
                 return word
 
-        label2language = {
-            'en': 'English',
-            'de': 'German',
-            'fr': 'French',
-            'es': 'Spanish',
-            'ru': 'Russian',
-            'nl': 'Dutch',
-            'it': 'Italian',
-            'ja': 'Japanese',
-        }
         fpath = os.path.join('plots', 'cycles.txt')
         cstats = self.graph_data['1']['comp_stats']
         no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
@@ -227,21 +229,16 @@ class Plotter(object):
             outfile.write(text)
 
     def print_link_counts(self):
-        # 'outdegree_av'
-        # 'outdegree_median'
-
-         with io.open(os.path.join('plots', 'outdegrees.txt'), 'a',
-                     encoding='utf-8') as outfile:
+          with io.open(os.path.join('plots', 'outdegrees.txt'), 'a',
+                       encoding='utf-8') as outfile:
             text = self.label[:-4]
+            print(self.label2language[text] + ' & ' + text + ' & ', end='')
+            outfile.write(text)
+            data = ['%.2f' % (self.graph_data[graph_name]['outdegree_av'])
+                    for graph_name in self.graph_order[1:]]
+            text = ' & '.join(data) + '\\\\'
             print(text)
-            outfile.write(text + ' & ')
-            for graph_name in self.graph_order:
-                av = float(self.graph_data[graph_name]['outdegree_av'])
-                md = float(self.graph_data[graph_name]['outdegree_median'])
-                text = '%.2f & %.2f' % (av, md)
-                print(text)
-                outfile.write(text)
-            outfile.write(' \\\\\n')
+            outfile.write(text + '\n')
 
     def plot(self, prop):
         fig, ax = plt.subplots(1, figsize=(6, 3))
@@ -510,7 +507,7 @@ class Plotter(object):
             print()
             print()
         # /DEBUG
-        # pdb.set_trace()
+        pdb.set_trace()
 
         fname = 'data_' + self.label + '.js'
         with io.open('plots/alluvial/' + fname, 'w', encoding='utf-8')\
@@ -567,13 +564,14 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        # 'first_p',
-        # 'lead',
-        # 'all',
-        # 'infobox',
+        'first_p',
+        'lead',
+        'all',
+        'infobox',
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
+        # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
         # 'cp_size',
@@ -581,7 +579,7 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         os.remove(os.path.join('plots', 'cycles.txt'))
