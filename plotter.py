@@ -188,15 +188,25 @@ class Plotter(object):
             except KeyError:
                 return word
 
+        label2language = {
+            'en': 'English',
+            'de': 'German',
+            'fr': 'French',
+            'es': 'Spanish',
+            'ru': 'Russian',
+            'nl': 'Dutch',
+            'it': 'Italian',
+            'ja': 'Japanese',
+        }
+        fpath = os.path.join('plots', 'cycles.txt')
         cstats = self.graph_data['1']['comp_stats']
         no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
-        with io.open(os.path.join('plots', 'cycles.txt'), 'a',
-                     encoding='utf-8') as outfile:
-            text = self.label[:-4]
+        with io.open(fpath, 'a', encoding='utf-8') as outfile:
+            text = label2language[self.label[:-4]] + ' & ' + self.label[:-4]
             print(text)
             outfile.write(text)
-            for cstat in cstats[:3]:
+            for cidx, cstat in enumerate(cstats[:3]):
                 cover = 100 * cstat['incomp_size'] / no_articles
                 names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
@@ -204,8 +214,12 @@ class Plotter(object):
                 names = ', '.join(names)
                 if self.label == 'jawiki':
                     names = '\\begin{CJK}{UTF8}{min} ' + names + '\\end{CJK}'
-                text = ' & %.1f\\%% & %s & %s \\\\\n' %\
-                       (cover, names_translated, names)
+                if cidx == 0:
+                    text = ''
+                else:
+                    text = ' & '
+                text += ' & %.1f\\%% & %s & %s \\\\\n' %\
+                        (cover, names_translated, names)
                 print(text, end='')
                 outfile.write(text)
             text = '\\hline\n'
@@ -228,7 +242,6 @@ class Plotter(object):
                 print(text)
                 outfile.write(text)
             outfile.write(' \\\\\n')
-
 
     def plot(self, prop):
         fig, ax = plt.subplots(1, figsize=(6, 3))
@@ -554,13 +567,13 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        'first_p',
-        'lead',
-        'all',
-        'infobox',
+        # 'first_p',
+        # 'lead',
+        # 'all',
+        # 'infobox',
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'link_counts',
         # 'cp_count',
         # 'cp_size',
@@ -568,18 +581,20 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
+    if 'cycles' in to_plot:
+        os.remove(os.path.join('plots', 'cycles.txt'))
     for wp in [
         # 'simple',
 
-        # 'en',
-        # 'de',
+        'en',
+        'de',
         'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)
