@@ -764,6 +764,17 @@ pagecounts-20160131-230000.gz, size 89M
 file_names = re.findall(r'pagecounts\-201601\d\d\-\d\d0000.gz', file_names_raw)
 pageview_dir = os.path.join('data', 'pageviews')
 pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
+prefixes = [
+    'it',
+    'nl',
+    'es',
+    'ja',
+    'en',
+    'de',
+    'fr',
+    'ru',
+]
+
 
 def read_pickle(fpath):
     with open(fpath, 'rb') as infile:
@@ -830,7 +841,6 @@ def parse(start=None, stop=None):
     file_names = [f for f in os.listdir(pageview_dir) if f.endswith('.gz')]
     file_names = sorted(file_names)
     file_names = file_names[start:stop]
-    prefixes = set(['en', 'de', 'fr', 'es', 'ru', 'it', 'ja', 'nl'])
     d = {prefix: collections.defaultdict(int) for prefix in prefixes}
 
     for fidx, file_name in enumerate(file_names):
@@ -855,32 +865,46 @@ def parse(start=None, stop=None):
 
 
 def combine_parsed_chunks():
-    prefixes = [
-        # 'ja',
-        'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'it',
-        'nl'
-    ]
     file_names = [f for f in os.listdir(pageview_dir_filtered)
                   if f.endswith('.obj') and not f.startswith('id2title')]
     file_names = sorted(file_names)
     for prefix in prefixes:
         print(prefix)
-        d = read_pickle(os.path.join(pageview_dir_filtered, file_names[0]))[prefix]
+        fpath = os.path.join(pageview_dir_filtered, file_names[0])
+        d = read_pickle(fpath)[prefix]
         for fidx, file_name in enumerate(file_names[1:]):
             print('    ', fidx+2, '/', len(file_names), file_name,
                   time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
             print('        reading file...')
-            d2 = read_pickle(os.path.join(pageview_dir_filtered, file_name))[prefix]
+            fpath = os.path.join(pageview_dir_filtered, file_name)
+            d2 = read_pickle(fpath)[prefix]
             print('        merging...')
             for k, v in d2.items():
                 d[k] += v
-        fpath = os.path.join(pageview_dir_filtered, 'id2title-' + prefix + '.obj')
+        fname = 'title2views-' + prefix + '.obj'
+        fpath = os.path.join(pageview_dir_filtered, fname)
         write_pickle(fpath, d)
+
+
+def get_id2views():
+    for prefix in prefixes:
+        print(prefix, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+        data_dir = os.path.join('data', prefix + 'wiki')
+        id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
+        title2id = {v: k for k, v in id2title.items()}
+        fname = 'title2views-' + prefix + '.obj'
+        title2views = read_pickle(os.path.join(pageview_dir_filtered, fname))
+        id2views = {}
+        for title, pid in title2id.items():
+            try:
+                id2views[pid] = title2views[title]
+            except KeyError:
+                print(title)
+                pdb.set_trace()
+
+        fname = 'id2views-' + prefix + '.obj'
+        fpath = os.path.join(pageview_dir_filtered, fname)
+        write_pickle(fpath, id2views)
 
 
 if __name__ == '__main__':
@@ -891,4 +915,6 @@ if __name__ == '__main__':
     #     print('ERROR')
     # parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
 
-    combine_parsed_chunks()
+    # combine_parsed_chunks()
+
+    get_id2views()
