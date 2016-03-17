@@ -26,27 +26,18 @@ def get_top_n(nodes, node2val, topn):
 
 if __name__ == '__main__':
     wikipedias = [
-        # 'simple',
+        'simple',
 
-        'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'it',
-        'ja',
-        'nl',
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
     ]
-    label2language = {
-        'en': 'English',
-        'de': 'German',
-        'fr': 'French',
-        'es': 'Spanish',
-        'ru': 'Russian',
-        'nl': 'Dutch',
-        'it': 'Italian',
-        'ja': 'Japanese',
-    }
+
     n_vals = [
         ('first_p', 'lead'),
         # ('lead', 'all'),

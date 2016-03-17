@@ -15,16 +15,16 @@ from tools import write_pickle
 
 if __name__ == '__main__':
     wikipedias = [
-        # 'simple',
+        'simple',
 
-        'it',
-        'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'ja',
-        'nl',
+        # 'it',
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'ja',
+        # 'nl',
     ]
 
     n_vals = [

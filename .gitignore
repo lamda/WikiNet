@@ -1,3 +1,4 @@
+*.7z
 *.gz
 *.obj
 *.pdf
@@ -5,3 +6,5 @@
 *.pyc
 *.sql
 *.tsv
+
+data/w4s/*

@@ -584,6 +584,7 @@ if __name__ == '__main__':
     ]
     if 'cycles' in to_plot:
         os.remove(os.path.join('plots', 'cycles.txt'))
+
     for wp in [
         # 'simple',
 

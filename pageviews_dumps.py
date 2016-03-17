@@ -13,6 +13,8 @@ import sys
 import time
 import urllib2
 
+from tools import read_pickle, write_pickle
+
 
 file_names_raw = """
 pagecounts-20160101-000000.gz, size 66M
@@ -763,8 +765,8 @@ pagecounts-20160131-230000.gz, size 89M
 
 file_names = re.findall(r'pagecounts\-201601\d\d\-\d\d0000.gz', file_names_raw)
 pageview_dir = os.path.join('data', 'pageviews')
-# pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
-pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered_simple')
+pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
+
 prefixes = [
     # 'it',
     # 'nl',
@@ -774,19 +776,8 @@ prefixes = [
     # 'de',
     # 'fr',
     # 'ru',
-    'simple'
+    'simple' # pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered_simple')
 ]
-
-
-def read_pickle(fpath):
-    with open(fpath, 'rb') as infile:
-        obj = pickle.load(infile)
-    return obj
-
-
-def write_pickle(fpath, obj):
-    with open(fpath, 'wb') as outfile:
-        pickle.dump(obj, outfile, -1)
 
 
 def download():
@@ -912,8 +903,8 @@ if __name__ == '__main__':
 
     # if len(sys.argv) < 3:
     #     print('ERROR')
-    parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
+    # parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
 
     # combine_parsed_chunks()
 
-    # get_id2views()
+    get_id2views()
