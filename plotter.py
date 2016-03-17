@@ -205,7 +205,7 @@ class Plotter(object):
         no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         with io.open(fpath, 'a', encoding='utf-8') as outfile:
-            text = label2language[self.label[:-4]] + ' & ' + self.label[:-4]
+            text = self.label2language[self.label[:-4]] + ' & ' + self.label[:-4]
             print(text)
             outfile.write(text)
             for cidx, cstat in enumerate(cstats[:3]):

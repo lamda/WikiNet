@@ -763,16 +763,18 @@ pagecounts-20160131-230000.gz, size 89M
 
 file_names = re.findall(r'pagecounts\-201601\d\d\-\d\d0000.gz', file_names_raw)
 pageview_dir = os.path.join('data', 'pageviews')
-pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
+# pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
+pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered_simple')
 prefixes = [
-    'it',
-    'nl',
-    'es',
-    'ja',
-    'en',
-    'de',
-    'fr',
-    'ru',
+    # 'it',
+    # 'nl',
+    # 'es',
+    # 'ja',
+    # 'en',
+    # 'de',
+    # 'fr',
+    # 'ru',
+    'simple'
 ]
 
 
@@ -853,9 +855,6 @@ def parse(start=None, stop=None):
                 continue
             prefix, title, views = line.strip().split(' ')[:3]
             d[prefix][title] += int(views)
-        # fpath = os.path.join(pageview_dir_filtered,
-        #                      file_name.rsplit('.', 1)[0] + '.obj')
-        # write_pickle(fpath, d)
     if start is not None and stop is not None:
         fname = 'd-%d-%d.obj' % (start, stop)
     else:
@@ -913,8 +912,8 @@ if __name__ == '__main__':
 
     # if len(sys.argv) < 3:
     #     print('ERROR')
-    # parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
+    parse(start=int(sys.argv[1]), stop=int(sys.argv[2]))
 
     # combine_parsed_chunks()
 
-    get_id2views()
+    # get_id2views()

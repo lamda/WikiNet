@@ -794,8 +794,10 @@ def get_id2title_no_redirect(data_dir):
 
 class Graph(object):
     def __init__(self, data_dir, fname='', use_sample=False,
-                 refresh=False, suffix='', N=None):
-        print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
+                 refresh=False, suffix='', N=None, verbose=False):
+        self.verbose = verbose
+        if self.verbose:
+            print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
         self.data_dir = data_dir
         self.stats_folder = os.path.join(self.data_dir, 'stats')
         if not os.path.exists(self.stats_folder):
@@ -823,15 +825,18 @@ class Graph(object):
         if refresh:
             self.load_graph_from_adjacency_list()
             self.save()
-            print('graph loaded from adjacency list')
+            if self.verbose:
+                print('graph loaded from adjacency list')
         else:
             try:  # load the .gt file
                 self.graph = gt.load_graph(self.gt_file_path, fmt='gt')
-                print('graph loaded from .gt file')
+                if self.verbose:
+                    print('graph loaded from .gt file')
             except IOError:  # fall back to text file
                 self.load_graph_from_adjacency_list()
                 self.save()
-                print('graph loaded from adjacency list')
+                if self.verbose:
+                    print('graph loaded from adjacency list')
 
     def load_graph_from_adjacency_list(self):
         print('\ngetting all nodes...')
