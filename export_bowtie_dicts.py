@@ -17,13 +17,13 @@ if __name__ == '__main__':
     wikipedias = [
         # 'simple',
 
-        # 'it',
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'ja',
+        'it',
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'ja',
         'nl',
     ]
 

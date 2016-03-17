@@ -507,7 +507,6 @@ class Plotter(object):
             print()
             print()
         # /DEBUG
-        pdb.set_trace()
 
         fname = 'data_' + self.label + '.js'
         with io.open('plots/alluvial/' + fname, 'w', encoding='utf-8')\
@@ -525,7 +524,8 @@ class Plotter(object):
                     outfile.write(ind * 4 + u'"id": ' + nid +
                                   u',\n')
                     outfile.write(ind * 4 + u'"nodeValue": ' +
-                                  unicode(int(n * 10000)) + u',\n')
+                                  # unicode(int(n * 10000)) + u',\n')
+                                  unicode(int(n * 100000)) + u',\n')
                     outfile.write(ind * 4 + u'"nodeLabel": "' +
                                   labels[jdx] + u'"\n')
                     outfile.write(ind * 3 + u'}')
@@ -549,7 +549,8 @@ class Plotter(object):
                     outfile.write(ind * 3 + u'"target": ' + t
                                   + ',\n')
                     outfile.write(ind * 3 + u'"value": ' +
-                                  unicode(val * 500000) + '\n')
+                                  # unicode(val * 500000) + '\n')
+                                  unicode(val * 5000000) + '\n')
                     outfile.write(ind * 2 + u'}')
                     if mindex != (len(ci) - 1):
                         outfile.write(u',')

@@ -176,7 +176,7 @@ var links = nodes.selectAll('path.link')
             return line(points);
         })
         .style('stroke-width', function(l) {
-            if ((l.value > 1) && (l.value < 10))
+            if ((l.value > 1) && (l.value < 500))
                 return y(l.value) + 0.25;
             return y(l.value)
         })

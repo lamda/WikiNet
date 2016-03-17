@@ -922,8 +922,8 @@ class Graph(object):
         # stats['pls'], stats['pls_max'] = self.path_lengths()
         if self.N == 1:
             stats['singles'], stats['comp_stats'] = self.cycle_components()
-        # stats['bow_tie'] = self.bow_tie()
-        # stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        stats['bow_tie'] = self.bow_tie()
+        stats['bow_tie_changes'] = self.compute_bowtie_changes()
         # stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
@@ -940,7 +940,7 @@ class Graph(object):
         # stats['pls'], stats['pls_max'] = self.path_lengths()
         # stats['lc_ecc'] = self.eccentricity()
         # stats['bow_tie'] = self.bow_tie()
-        stats['bow_tie'] = self.bow_tie2()
+        # stats['bow_tie'] = self.bow_tie2()
         stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
@@ -1265,7 +1265,6 @@ class Graph(object):
         ]:
             for node in component:
                 vp_bowtie[self.graph.vertex(node)] = label
-        # self.graph.vp['bowtie2'] = vp_bowtie
         self.graph.vp['bowtie'] = vp_bowtie
 
         # for nidx, node in enumerate(self.graph.vertices()):
@@ -1294,10 +1293,11 @@ class Graph(object):
         prev_graph = gt.load_graph(prev_gt_file_path, fmt='gt')
 
         changes = np.zeros((len(labels), len(labels)))
+        wpid2node_c2 = {prev_graph.vp['name'][v]: v for v in prev_graph.vertices()}
         for node in self.graph.vertices():
             c1 = comp2num[self.graph.vp['bowtie'][node]]
             try:
-                c2 = comp2num[prev_graph.vp['bowtie'][node]]
+                c2 = comp2num[prev_graph.vp['bowtie'][wpid2node_c2[self.graph.vp['name'][node]]]]
             except KeyError:
                 c2 = comp2num['OTHER']
             changes[c1, c2] += 1

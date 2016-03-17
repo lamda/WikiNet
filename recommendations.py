@@ -28,16 +28,25 @@ if __name__ == '__main__':
     wikipedias = [
         # 'simple',
 
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
         'it',
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'ja',
-        # 'nl',
+        'ja',
+        'nl',
     ]
-
+    label2language = {
+        'en': 'English',
+        'de': 'German',
+        'fr': 'French',
+        'es': 'Spanish',
+        'ru': 'Russian',
+        'nl': 'Dutch',
+        'it': 'Italian',
+        'ja': 'Japanese',
+    }
     n_vals = [
         ('first_p', 'lead'),
         # ('lead', 'all'),
