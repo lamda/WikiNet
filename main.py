@@ -940,7 +940,6 @@ class Graph(object):
         # stats['pls'], stats['pls_max'] = self.path_lengths()
         # stats['lc_ecc'] = self.eccentricity()
         # stats['bow_tie'] = self.bow_tie()
-        # stats['bow_tie'] = self.bow_tie2()
         stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
@@ -1084,8 +1083,8 @@ class Graph(object):
         comp_stats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         return singles, comp_stats
 
-    def bow_tie(self):
-        print('bow tie')
+    def bow_tie_old(self):
+        print('bow tie (old and slow version)')
 
         all_nodes = set(int(n) for n in self.graph.vertices())
         component, histogram = gt.label_components(self.graph)
@@ -1152,8 +1151,8 @@ class Graph(object):
         bow_tie = [100 * len(x)/self.graph.num_vertices() for x in bow_tie]
         return bow_tie
 
-    def bow_tie2(self):
-        print('bow tie2')
+    def bow_tie(self):
+        print('bow tie')
 
         all_nodes = set(int(n) for n in self.graph.vertices())
         component, histogram = gt.label_components(self.graph)
@@ -1231,7 +1230,7 @@ class Graph(object):
             if successors != False:
                 node2reach[node][1] = True
                 if successors and successors[0] not in outc:
-                    node2reach[predecessors[0]][1] = True
+                    node2reach[successors[0]][1] = True
                 for s in successors[1:]:
                     node2reach[s][1] = True
             # print(predecessors)
