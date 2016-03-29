@@ -216,6 +216,8 @@ class Plotter(object):
                 names = ', '.join(names)
                 if self.label == 'jawiki':
                     names = '\\begin{CJK}{UTF8}{min} ' + names + '\\end{CJK}'
+                elif self.label == 'ruwiki':
+                    names = '\\foreignlanguage{russian}{' + names + '}'
                 if cidx == 0:
                     text = ''
                 else:
@@ -571,7 +573,7 @@ if __name__ == '__main__':
         'infobox',
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
@@ -580,7 +582,7 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         os.remove(os.path.join('plots', 'cycles.txt'))

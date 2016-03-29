@@ -34,18 +34,15 @@ def debug(*text):
         print(' '.join(str(t) for t in text))
 
 
-def find_nodes(node, to_find, visited):
-    debug('find_path at', node)
+def find_nodes(node, count, to_find, visited):
     if int(node) in to_find:
-        debug('    found to_find, returning')
-        return 1
+        return count
     visited.add(node)
     reach_sum = 0
     for nb in node.out_neighbours():
         if nb in visited:
             continue
         reach = find_nodes(nb, to_find, visited)
-        debug('    find_nodes successful at node', int(nb))
         reach_sum += reach
     return reach_sum
 
@@ -53,7 +50,8 @@ def find_nodes(node, to_find, visited):
 def get_reach(graph, nodes, to_find):
     node2reach = {}
     for nidx, node in enumerate(nodes):
-        print('\r', nidx+1, '/', len(nodes), end='')
+        # print('\r', nidx+1, '/', len(nodes), end='')
+        print(nidx+1, '/', len(nodes))
         reach = find_nodes(graph.vertex(node), to_find, set())
         node2reach[node] = reach
     print()
@@ -73,7 +71,8 @@ def test_node2reach():
         (v3, v1),
         (v3, v2),
     ])
-    node2reach = get_reach(g, [v1, v2, v3], set([v0]))
+    # node2reach = get_reach(g, [v1, v2, v3], set([v0]))
+    node2reach = get_reach(g, [v3], set([v0]))
     for n, r in node2reach.items():
         print(n, r)
     pdb.set_trace()
