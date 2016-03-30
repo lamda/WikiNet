@@ -42,11 +42,11 @@ if __name__ == '__main__':
     # cleanup(DATA_DIR)
 
     for n_val in [
-        # 1,
+        1,
         'first_p',
-        'lead',
+        # 'lead',
         # 'infobox',
-        'all',
+        # 'all',
     ]:
         print('---------------- N =', n_val, '----------------')
         g = Graph(data_dir=DATA_DIR, fname='links',

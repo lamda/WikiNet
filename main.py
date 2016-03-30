@@ -820,6 +820,7 @@ class Graph(object):
         self.names = self.graph.new_vertex_property('int32_t')
         lbd_add = lambda: self.graph.add_vertex()
         self.name2node = collections.defaultdict(lbd_add)
+        self.stats = {}
 
     def load_graph(self, refresh=False):
         if refresh:
@@ -914,37 +915,34 @@ class Graph(object):
 
     def compute_stats(self):
         print('computing stats...')
-        stats = {}
-        stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
-            stats['outdegree_median'] = self.basic_stats()
-        # # stats['cc'] = self.clustering_coefficient()
-        stats['cp_size'], stats['cp_count'] = self.largest_component()
-        # stats['pls'], stats['pls_max'] = self.path_lengths()
+        self.stats['graph_size'], self.stats['recommenders'],\
+            self.stats['outdegree_av'],\
+            self.stats['outdegree_median'] = self.basic_stats()
+        # # self.stats['cc'] = self.clustering_coefficient()
+        self.stats['cp_size'], self.stats['cp_count'] = self.largest_component()
+        # self.stats['pls'], self.stats['pls_max'] = self.path_lengths()
         if self.N == 1:
-            stats['singles'], stats['comp_stats'] = self.cycle_components()
-        stats['bow_tie'] = self.bow_tie()
-        stats['bow_tie_changes'] = self.compute_bowtie_changes()
-        # stats['lc_ecc'] = self.eccentricity()
+            self.stats['singles'], self.stats['comp_stats'] =\
+                self.cycle_components()
+        self.stats['bow_tie'] = self.bow_tie()
+        self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        # self.stats['lc_ecc'] = self.eccentricity()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
-            pickle.dump(stats, outfile, -1)
+            pickle.dump(self.stats, outfile, -1)
         print()
 
     def update_stats(self):
         with open(self.stats_file_path, 'rb') as infile:
-            stats = pickle.load(infile)
+            self.stats = pickle.load(infile)
 
-        # stats['graph_size'], stats['recommenders'], stats['outdegree_av'],\
-        #     stats['outdegree_median'] = self.basic_stats()
-        # stats['pls'], stats['pls_max'] = self.path_lengths()
-        # stats['lc_ecc'] = self.eccentricity()
-        # stats['bow_tie'] = self.bow_tie()
-        stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        self.stats['bow_tie'] = self.bow_tie()
+        self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
 
         print('saving...')
         with open(self.stats_file_path, 'wb') as outfile:
-            pickle.dump(stats, outfile, -1)
+            pickle.dump(self.stats, outfile, -1)
         print()
 
     def print_stats(self):
@@ -1158,7 +1156,14 @@ class Graph(object):
         component, histogram = gt.label_components(self.graph)
 
         # Core, In and Out
-        label_of_largest_component = np.argmax(histogram)
+        if self.N == 1:
+            # choose SCC with largest incomponent
+            comp_stats = self.stats['comp_stats']
+            comp_stats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
+            label_of_largest_component = component[comp_stats[0]['vertices'][0]]
+        else:
+            label_of_largest_component = np.argmax(histogram)
+
         largest_component = (component.a == label_of_largest_component)
         lcp = gt.GraphView(self.graph, vfilt=largest_component)
         scc = set([int(n) for n in lcp.vertices()])
@@ -1214,7 +1219,6 @@ class Graph(object):
                 print('    nothing found')
             return False
 
-        # 16384 TUBE
         node2reach = {node: [None, None] for node in remainder}  # (inc, outc)
         for nidx, node in enumerate(remainder):
             print('\r', nidx+1, '/', num_remainder, end='')

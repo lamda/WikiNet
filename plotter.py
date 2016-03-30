@@ -573,7 +573,7 @@ if __name__ == '__main__':
         'infobox',
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
@@ -582,21 +582,21 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         os.remove(os.path.join('plots', 'cycles.txt'))
 
     for wp in [
-        # 'simple',
+        'simple',
 
-        'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'it',
-        'ja',
-        'nl',
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

@@ -34,26 +34,33 @@ def debug(*text):
         print(' '.join(str(t) for t in text))
 
 
-def find_nodes(node, count, to_find, visited):
-    if int(node) in to_find:
-        return count
-    visited.add(node)
-    reach_sum = 0
-    for nb in node.out_neighbours():
-        if nb in visited:
-            continue
-        reach = find_nodes(nb, to_find, visited)
-        reach_sum += reach
-    return reach_sum
+def find_nodes(start_node, to_find):
+    # via networkx.algorithms.simple_paths.all_simple_paths
+    reached_nodes = set()
+    visited = [start_node]
+    stack = [start_node.out_neighbours()]
+    while stack:
+        node = stack[-1]
+        nb = next(node, None)
+        if nb is None:
+            stack.pop()
+            visited.pop()
+        elif nb in to_find:
+            reached_nodes |= set(visited)
+        elif nb not in visited:
+            visited.append(nb)
+            stack.append(nb.out_neighbours())
+    return reached_nodes
 
 
 def get_reach(graph, nodes, to_find):
     node2reach = {}
     for nidx, node in enumerate(nodes):
-        # print('\r', nidx+1, '/', len(nodes), end='')
-        print(nidx+1, '/', len(nodes))
-        reach = find_nodes(graph.vertex(node), to_find, set())
-        node2reach[node] = reach
+        print('\r', nidx+1, '/', len(nodes), end='')
+        # print(nidx+1, '/', len(nodes))
+        reach = find_nodes(graph.vertex(node), to_find)
+        node2reach[node] = len(reach)
+        # node2reach[node] = reach
     print()
     return node2reach
 
@@ -64,25 +71,37 @@ def test_node2reach():
     v1 = g.add_vertex()
     v2 = g.add_vertex()
     v3 = g.add_vertex()
+    v4 = g.add_vertex()
+    v5 = g.add_vertex()
+    v00 = g.add_vertex()
     g.add_edge_list([
         (v1, v0),
+        (v2, v00),
         (v2, v0),
         (v2, v1),
         (v3, v1),
         (v3, v2),
+        (v3, v4),
+        (v4, v5),
     ])
-    # node2reach = get_reach(g, [v1, v2, v3], set([v0]))
-    node2reach = get_reach(g, [v3], set([v0]))
+    node2reach = get_reach(g, [v1, v2, v3, v4, v5], set([v0]))
+    # node2reach = get_reach(g, [v3], set([v0]))
+    result = []
     for n, r in node2reach.items():
         print(n, r)
-    pdb.set_trace()
+        result.append((int(n), r))
+    assert result == [
+        (1, 1),
+        (2, 2),
+        (3, 3),
+        (4, 0),
+        (5, 0),
+    ]
 
 
 if __name__ == '__main__':
 
-    test_node2reach()
-    sys.exit()
-
+    # test_node2reach()
 
     wikipedias = [
         'simple',
@@ -123,10 +142,6 @@ if __name__ == '__main__':
                               for v in g_small.graph.vertices()}
             wid2node_large = {g_large.graph.vp['name'][v]: v
                               for v in g_large.graph.vertices()}
-            # id2bowtie = read_pickle(os.path.join(pageview_dir_filtered,
-            #                                      'id2bowtie-' + wp + '.obj'))
-            # id2bowtie_small = id2bowtie[wp_small]
-            # id2bowtie_large = id2bowtie[wp_large]
             wpid2title_small = {
                 g_small.graph.vp['name'][v]: g_small.graph.vp['title'][v]
                 for v in g_small.graph.vertices()
