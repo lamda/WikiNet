@@ -958,20 +958,21 @@ class Graph(object):
             self.id2views = read_pickle(os.path.join(fpath, fname))
         if edge:
             self.graph.add_edge(edge[0], edge[1])
-            # TODO: incrementally update self.scc_size and self.vc_ratio as the
-            # new edge comes in...
-        else:
-            component, histogram = gt.label_components(self.graph)
-            self.scc_size = 100 * max(histogram) / self.graph.num_vertices()
-            scc_nodes = [self.graph.vp['name'][v] for v in self.graph.vertices()
-                         if self.graph.vp['bowtie'][v] == 'SCC']
-            inc_nodes = [self.graph.vp['name'][v] for v in self.graph.vertices()
-                         if self.graph.vp['bowtie'][v] == 'IN']
-            self.scc_len = len(scc_nodes)
-            self.inc_len = len(inc_nodes)
-            self.scc_sum_vc = sum(self.id2views[v] for v in scc_nodes)
-            self.inc_sum_vc = sum(self.id2views[v] for v in inc_nodes)
-            self.vc_ratio = (self.scc_sum_vc / self.scc_len) / (self.inc_sum_vc / self.inc_len)
+        component, histogram = gt.label_components(self.graph)
+        self.scc_size = 100 * max(histogram) / self.graph.num_vertices()
+        label_of_largest_component = np.argmax(histogram)
+        largest_component = (component.a == label_of_largest_component)
+        lcp = gt.GraphView(self.graph, vfilt=largest_component)
+        scc = set([int(n) for n in lcp.vertices()])
+        scc_node = random.sample(scc, 1)[0]
+        graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
+        inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
+        self.scc_len = len(scc)
+        self.inc_len = len(inc)
+        self.scc_sum_vc = sum(self.id2views[v] for v in scc)
+        self.inc_sum_vc = sum(self.id2views[v] for v in inc)
+        self.vc_ratio =\
+            (self.scc_sum_vc / self.scc_len) / (self.inc_sum_vc / self.inc_len)
         return self.scc_size, self.vc_ratio
 
     def print_stats(self):

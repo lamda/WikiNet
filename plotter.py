@@ -588,15 +588,15 @@ if __name__ == '__main__':
         os.remove(os.path.join('plots', 'cycles.txt'))
 
     for wp in [
-        'simple',
+        # 'simple',
 
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

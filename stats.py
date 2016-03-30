@@ -58,7 +58,9 @@ def get_navigability_stats():
     n_vals = [
         'first_p',
         'lead',
+        'all'
     ]
+
     wikipedia2articles_edits = {
         'en': (812170986, 5072214),
         'de': (156204159, 1905450),
@@ -74,18 +76,22 @@ def get_navigability_stats():
     fpath = os.path.join('plots', 'stats.txt')
     with io.open(fpath, 'a', encoding='utf-8') as outfile:
         for wp in wikipedias:
-            scc_size = graph2cpsize[wp]['first_p']
             a, e = wikipedia2articles_edits[wp]
-            text = wp + ' & $%.5f$ & $%.5f$ \\\\\n' % (scc_size / a, scc_size / e)
-            print(text)
-            outfile.write(text)
+            for n_val in n_vals:
+                if n_val == n_vals[0]:
+                    text = '%s & %d & %d & %s & ' % (wp, a, e, n_val.replace('_', '\\_'))
+                else:
+                    text = ' & & & %s & ' % (n_val.replace('_', '\\_'))
+                scc_size = graph2cpsize[wp][n_val]
+                text += '$%.5f$ & $%.5f$ \\\\' % (scc_size / a, scc_size / e)
+                print(text)
+                outfile.write(text + '\n')
+            outfile.write('\\hline\n')
 
 
 def get_view_count_stats():
     wikipedias = [
         # 'simple',
-        'it',
-
         'en',
         'de',
         'fr',
@@ -123,6 +129,6 @@ def get_view_count_stats():
 
 
 if __name__ == '__main__':
-    # get_navigability_stats()
-    get_view_count_stats()
+    get_navigability_stats()
+    # get_view_count_stats()
 

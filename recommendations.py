@@ -106,6 +106,17 @@ def add_recommendations(label):
               fname='links', use_sample=False, refresh=False, N=wp_small)
     g.load_graph(refresh=False)
     scc_size, vc_ratio = g.get_recommendation_stats()
+    scc_sizes = [scc_size]
+    vc_ratios = [vc_ratio]
+    # TODO: get top 100 candidates
+    candidates = []
+    for cand in candidates:
+        scc_size, vc_ratio = g.get_recommendation_stats(cand)
+        scc_sizes.append(scc_size)
+        vc_ratios.append(vc_ratio)
+
+    # TODO: visualize
+
 
 
 if __name__ == '__main__':
