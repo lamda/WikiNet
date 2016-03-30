@@ -823,6 +823,10 @@ class Graph(object):
         self.name2node = collections.defaultdict(lbd_add)
         self.stats = {}
         self.id2views = {}
+        self.scc_size, self.vc_ratio = None, None
+        self.scc_len, self.inc_len = 0, 0
+        self.inc_sum_vc, self.scc_sum_vc = 0, 0
+
 
     def load_graph(self, refresh=False):
         if refresh:
@@ -950,17 +954,25 @@ class Graph(object):
     def get_recommendation_stats(self, edge=None):
         if self.id2views == {}:
             fpath = os.path.join('data', 'pageviews', 'filtered')
-            fname = 'id2views-' +  self.label + '.obj'
+            fname = 'id2views-' + self.label + '.obj'
             self.id2views = read_pickle(os.path.join(fpath, fname))
         if edge:
             self.graph.add_edge(edge[0], edge[1])
-        component, histogram = gt.label_components(self.graph)
-        scc_size = 100 * max(histogram) / self.graph.num_vertices()
-        inc_av_vc = 0
-        scc_av_vc = 0
-        vc_ratio = inc_av_vc / scc_av_vc
-        return scc_size, vc_ratio
-
+            # TODO: incrementally update self.scc_size and self.vc_ratio as the
+            # new edge comes in...
+        else:
+            component, histogram = gt.label_components(self.graph)
+            self.scc_size = 100 * max(histogram) / self.graph.num_vertices()
+            scc_nodes = [self.graph.vp['name'][v] for v in self.graph.vertices()
+                         if self.graph.vp['bowtie'][v] == 'SCC']
+            inc_nodes = [self.graph.vp['name'][v] for v in self.graph.vertices()
+                         if self.graph.vp['bowtie'][v] == 'IN']
+            self.scc_len = len(scc_nodes)
+            self.inc_len = len(inc_nodes)
+            self.scc_sum_vc = sum(self.id2views[v] for v in scc_nodes)
+            self.inc_sum_vc = sum(self.id2views[v] for v in inc_nodes)
+            self.vc_ratio = (self.scc_sum_vc / self.scc_len) / (self.inc_sum_vc / self.inc_len)
+        return self.scc_size, self.vc_ratio
 
     def print_stats(self):
         with open(self.stats_file_path, 'rb') as infile:
