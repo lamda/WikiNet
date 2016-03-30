@@ -799,6 +799,7 @@ class Graph(object):
         if self.verbose:
             print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
         self.data_dir = data_dir
+        self.label = data_dir.split(os.path.sep)[-1]
         self.stats_folder = os.path.join(self.data_dir, 'stats')
         if not os.path.exists(self.stats_folder):
             os.makedirs(self.stats_folder)
@@ -821,6 +822,7 @@ class Graph(object):
         lbd_add = lambda: self.graph.add_vertex()
         self.name2node = collections.defaultdict(lbd_add)
         self.stats = {}
+        self.id2views = {}
 
     def load_graph(self, refresh=False):
         if refresh:
@@ -944,6 +946,21 @@ class Graph(object):
         with open(self.stats_file_path, 'wb') as outfile:
             pickle.dump(self.stats, outfile, -1)
         print()
+
+    def get_recommendation_stats(self, edge=None):
+        if self.id2views == {}:
+            fpath = os.path.join('data', 'pageviews', 'filtered')
+            fname = 'id2views-' +  self.label + '.obj'
+            self.id2views = read_pickle(os.path.join(fpath, fname))
+        if edge:
+            self.graph.add_edge(edge[0], edge[1])
+        component, histogram = gt.label_components(self.graph)
+        scc_size = 100 * max(histogram) / self.graph.num_vertices()
+        inc_av_vc = 0
+        scc_av_vc = 0
+        vc_ratio = inc_av_vc / scc_av_vc
+        return scc_size, vc_ratio
+
 
     def print_stats(self):
         with open(self.stats_file_path, 'rb') as infile:
