@@ -99,27 +99,48 @@ def test_node2reach():
     ]
 
 
-def add_recommendations(label):
-    wp_small = 'first_p'
-    wp_large = 'lead'
-    g = Graph(data_dir=os.path.join('data', label + 'wiki'),
-              fname='links', use_sample=False, refresh=False, N=wp_small)
-    g.load_graph(refresh=False)
-    scc_size, vc_ratio = g.get_recommendation_stats()
-    scc_sizes = [scc_size]
-    vc_ratios = [vc_ratio]
-    # TODO: get top 100 candidates
-    candidates = []
-    for cand in candidates:
-        scc_size, vc_ratio = g.get_recommendation_stats(cand)
-        scc_sizes.append(scc_size)
-        vc_ratios.append(vc_ratio)
+class Recommender(object):
+    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
+        self.label = label
+        self.small_n, self.large_n = small_n, large_n
+        self.n_recs = n_recs
+        self.g_small, self.g_large = None, None
+        self.vc_ratios, self.scc_sizes = [], []
 
-    # TODO: visualize
+    def load_graphs(self):
+        self.g_small = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
+                             fname='links', use_sample=False, refresh=False,
+                             N=self.small_n)
+        self.g_small.load_graph(refresh=False)
+        self.g_large = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
+                             fname='links', use_sample=False, refresh=False,
+                             N=self.large_n)
+        self.g_large.load_graph(refresh=False)
 
+    def recommend_view_counts(self):
+        scc_size, vc_ratio = self.g_small.get_recommendation_stats()
+        self.scc_sizes = [scc_size]
+        self.vc_ratios = [vc_ratio]
+
+        for i in range(self.n_recs):
+            print(i+1, '/', self.n_recs)
+            candidate = self.get_top_candidate()
+            self.g_small.graph.add_edge(edge[0], edge[1])
+            scc_size, vc_ratio = self.g_small.get_recommendation_stats(candidate)
+            self.scc_sizes.append(scc_size)
+            self.vc_ratios.append(vc_ratio)
+        self.g_small.stats['recs_vc_ratio'] = self.vc_ratios
+
+    def recommend_scc_size(self):
+        self.g_small.stats['recs_scc_size'] = self.scc_sizes
 
 
 if __name__ == '__main__':
+    recommender = Recommender('simplewiki')
+    recommender.recommend_view_counts()
+    # recommender.recommend_scc_size()
+
+
 
     # test_node2reach()
 

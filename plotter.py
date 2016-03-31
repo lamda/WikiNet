@@ -278,6 +278,44 @@ class Plotter(object):
             plt.savefig(fpath + ftype)
         plt.close()
 
+    def plot_recommendations(self):
+        for prop in [
+            'recs_vc_ratio',
+            # 'recs_scc_size',
+        ]:
+            fig, ax = plt.subplots(1, figsize=(6, 3))
+            bar_vals = [self.graph_data[graph_name][prop]
+                        for graph_name in self.graph_order]
+            x_vals = range(len(self.graph_order))
+            bars = ax.bar(x_vals, bar_vals, align='center')
+
+            # Beautification
+            for bidx, bar in enumerate(bars):
+                bar.set_fill(False)
+                bar.set_hatch(self.hatches[bidx])
+                bar.set_edgecolor(self.colors[bidx])
+
+            ax.set_xlim(-0.5, len(self.graph_order) - 0.5)
+            ax.set_xticks([x - 0.25 for x in x_vals])
+            for tic in ax.xaxis.get_major_ticks():
+                tic.tick1On = tic.tick2On = False
+            labels = [g for g in self.graph_order]
+            ax.set_xticklabels(labels, rotation='-50', ha='left')
+
+            if prop == 'recs_vc_ratio':
+                ylabel = 'View Count Ratio'
+            elif prop == 'recs_scc_size':
+                ylabel = 'SCC size'
+            ax.set_ylabel(ylabel)
+            ax.set_xlim(0, 101)
+            ax.set_ylim(0, 16)
+
+            plt.tight_layout()
+            fpath = os.path.join(self.plot_folder, self.label + '_' + prop)
+            for ftype in self.plot_file_types:
+                plt.savefig(fpath + ftype)
+            plt.close()
+
     def plot_ecc(self):
         # # plot_ecc_legend
         fig = plt.figure()

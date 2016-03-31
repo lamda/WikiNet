@@ -823,10 +823,6 @@ class Graph(object):
         self.name2node = collections.defaultdict(lbd_add)
         self.stats = {}
         self.id2views = {}
-        self.scc_size, self.vc_ratio = None, None
-        self.scc_len, self.inc_len = 0, 0
-        self.inc_sum_vc, self.scc_sum_vc = 0, 0
-
 
     def load_graph(self, refresh=False):
         if refresh:
@@ -919,6 +915,16 @@ class Graph(object):
     def save(self):
         self.graph.save(self.gt_file_path, fmt='gt')
 
+    def load_stats(self):
+        with open(self.stats_file_path, 'rb') as infile:
+            self.stats = pickle.load(infile)
+
+    def save_stats(self):
+        print('saving...')
+        with open(self.stats_file_path, 'wb') as outfile:
+            pickle.dump(self.stats, outfile, -1)
+        print()
+
     def compute_stats(self):
         print('computing stats...')
         self.stats['graph_size'], self.stats['recommenders'],\
@@ -933,47 +939,40 @@ class Graph(object):
         self.stats['bow_tie'] = self.bow_tie()
         self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         # self.stats['lc_ecc'] = self.eccentricity()
-
-        print('saving...')
-        with open(self.stats_file_path, 'wb') as outfile:
-            pickle.dump(self.stats, outfile, -1)
-        print()
+        self.save_stats()
 
     def update_stats(self):
-        with open(self.stats_file_path, 'rb') as infile:
-            self.stats = pickle.load(infile)
-
+        print('updating stats...')
+        self.load_stats()
         self.stats['bow_tie'] = self.bow_tie()
         self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        self.save_stats()
 
-        print('saving...')
-        with open(self.stats_file_path, 'wb') as outfile:
-            pickle.dump(self.stats, outfile, -1)
-        print()
-
-    def get_recommendation_stats(self, edge=None):
+    def get_recommendation_stats(self):
         if self.id2views == {}:
             fpath = os.path.join('data', 'pageviews', 'filtered')
             fname = 'id2views-' + self.label + '.obj'
             self.id2views = read_pickle(os.path.join(fpath, fname))
-        if edge:
-            self.graph.add_edge(edge[0], edge[1])
+
+        # get SCC
         component, histogram = gt.label_components(self.graph)
-        self.scc_size = 100 * max(histogram) / self.graph.num_vertices()
+        scc_size = 100 * max(histogram) / self.graph.num_vertices()
         label_of_largest_component = np.argmax(histogram)
         largest_component = (component.a == label_of_largest_component)
         lcp = gt.GraphView(self.graph, vfilt=largest_component)
         scc = set([int(n) for n in lcp.vertices()])
         scc_node = random.sample(scc, 1)[0]
+
+        # get IN
         graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
         inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
-        self.scc_len = len(scc)
-        self.inc_len = len(inc)
-        self.scc_sum_vc = sum(self.id2views[v] for v in scc)
-        self.inc_sum_vc = sum(self.id2views[v] for v in inc)
-        self.vc_ratio =\
-            (self.scc_sum_vc / self.scc_len) / (self.inc_sum_vc / self.inc_len)
-        return self.scc_size, self.vc_ratio
+
+        # get view count ratio
+        scc_sum_vc = sum(self.id2views[v] for v in scc)
+        inc_sum_vc = sum(self.id2views[v] for v in inc)
+        vc_ratio = (scc_sum_vc / len(scc)) / (inc_sum_vc / len(inc))
+
+        return scc_size, vc_ratio
 
     def print_stats(self):
         with open(self.stats_file_path, 'rb') as infile:
