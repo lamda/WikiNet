@@ -6,8 +6,10 @@ try:
 except ImportError:
     pass
 import io
+import numpy as np
 import os
 import pdb
+import random
 
 from main import Graph
 from tools import read_pickle, write_pickle, url_unescape
@@ -106,6 +108,9 @@ class Recommender(object):
         self.n_recs = n_recs
         self.g_small, self.g_large = None, None
         self.vc_ratios, self.scc_sizes = [], []
+        fpath = os.path.join('data', 'pageviews', 'filtered')
+        fname = 'id2views-' + self.label + '.obj'
+        self.id2views = read_pickle(os.path.join(fpath, fname))
 
     def load_graphs(self):
         self.g_small = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
@@ -117,27 +122,109 @@ class Recommender(object):
                              N=self.large_n)
         self.g_large.load_graph(refresh=False)
 
-    def recommend_view_counts(self):
-        scc_size, vc_ratio = self.g_small.get_recommendation_stats()
+
+class ViewCountRecommender(Recommender):
+    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
+        Recommender.__init__(self, label, small_n, large_n, n_recs)
+
+        # get SCC
+        component, histogram = gt.label_components(self.g_small.graph)
+        scc_size = 100 * max(histogram) / self.g_small.graph.num_vertices()
+        label_of_largest_component = np.argmax(histogram)
+        largest_component = (component.a == label_of_largest_component)
+        lcp = gt.GraphView(self.g_small.graph, vfilt=largest_component)
+        self.scc = set([int(n) for n in lcp.vertices()])
+        self.scc_node = random.sample(self.scc, 1)[0]
+
+        # get IN
+        self.graph_reversed = gt.GraphView(self.g_small.graph, reversed=True,
+                                           directed=True)
+        self.inc = np.nonzero(
+            gt.label_out_component(self.graph_reversed, self.scc_node).a
+        )[0]
+
+        # get view count ratio
+        self.scc_sum_vc = sum(self.id2views[v] for v in self.scc)
+        self.inc_sum_vc = sum(self.id2views[v] for v in self.inc)
+        vc_ratio = (self.scc_sum_vc / len(self.scc)) / (self.inc_sum_vc / len(self.inc))
+
         self.scc_sizes = [scc_size]
         self.vc_ratios = [vc_ratio]
 
+        self.wid2node_small = {self.g_small.graph.vp['name'][v]: v
+                               for v in self.g_small.graph.vertices()}
+        self.wid2node_large = {self.g_large.graph.vp['name'][v]: v
+                               for v in self.g_large.graph.vertices()}
+
+    def add_recommendation(self):
+        # find the top recommendation
+        scc_node, inc_node, vc_max = None, None, -1
+        for node_small in self.scc:
+            node_large = self.wid2node_large[self.g_small.graph.vp['name'][node_small]]
+            nbs_large = [self.wid2node_small[self.g_large.graph.vp['name'][nb]]
+                         for nb in node_large.out_neighbours()]
+            candidates = set(nbs_large) - set(node_small.out_neighbours())
+            for cand in candidates:
+                if self.id2views[self.g_small.vp['name'][cand]] > vc_max:
+                    node_max = cand
+                    vc_max = self.id2views[self.g_small.vp['name'][cand]]
+
+        # find out the effects of adding it
+        reached_nodes = find_nodes(node_max, self.scc)
+        for rn in reached_nodes:
+            self.scc.add(rn)
+            self.inc.remove(rn)
+            self.scc_sum_vc += self.id2views[rn]
+            self.inc_sum_vc -= self.id2views[rn]
+
+        # add it
+        self.g_small.graph.add_edge(scc_node, inc_node)
+
+        return scc_size, vc_ratio
+
+    def recommend(self):
         for i in range(self.n_recs):
             print(i+1, '/', self.n_recs)
-            candidate = self.get_top_candidate()
-            self.g_small.graph.add_edge(edge[0], edge[1])
-            scc_size, vc_ratio = self.g_small.get_recommendation_stats(candidate)
+            scc_size, vc_ratio = self.add_recommendation()
             self.scc_sizes.append(scc_size)
             self.vc_ratios.append(vc_ratio)
         self.g_small.stats['recs_vc_ratio'] = self.vc_ratios
 
-    def recommend_scc_size(self):
+
+class SccSizeRecommender(Recommender):
+    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
+        Recommender.__init__(self, label, small_n, large_n, n_recs)
+
+    def get_recommendation_stats(self):
+        # get SCC
+        component, histogram = gt.label_components(self.g_small.graph)
+        scc_size = 100 * max(histogram) / self.g_small.graph.num_vertices()
+        label_of_largest_component = np.argmax(histogram)
+        largest_component = (component.a == label_of_largest_component)
+        lcp = gt.GraphView(self.g_small.graph, vfilt=largest_component)
+        scc = set([int(n) for n in lcp.vertices()])
+        scc_node = random.sample(scc, 1)[0]
+
+        # get IN
+        graph_reversed = gt.GraphView(self.g_small.graph, reversed=True,
+                                      directed=True)
+        inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
+
+        # get view count ratio
+        scc_sum_vc = sum(self.id2views[v] for v in scc)
+        inc_sum_vc = sum(self.id2views[v] for v in inc)
+        vc_ratio = (scc_sum_vc / len(scc)) / (inc_sum_vc / len(inc))
+
+        return scc_size, vc_ratio
+
+    def recommend(self):
         self.g_small.stats['recs_scc_size'] = self.scc_sizes
 
 
 if __name__ == '__main__':
-    recommender = Recommender('simplewiki')
-    recommender.recommend_view_counts()
+    vc_recommender = ViewCountRecommender('simplewiki')
+    vc_recommender.recommend_view_counts()
+    # recommender.load_graphs()
     # recommender.recommend_scc_size()
 
 

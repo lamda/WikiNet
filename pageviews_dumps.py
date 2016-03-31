@@ -766,6 +766,7 @@ pagecounts-20160131-230000.gz, size 89M
 file_names = re.findall(r'pagecounts\-201601\d\d\-\d\d0000.gz', file_names_raw)
 pageview_dir = os.path.join('data', 'pageviews')
 pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
+# pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered_simple')
 
 prefixes = [
     # 'it',
@@ -776,7 +777,7 @@ prefixes = [
     # 'de',
     # 'fr',
     # 'ru',
-    'simple' # pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered_simple')
+    'simple'
 ]
 
 

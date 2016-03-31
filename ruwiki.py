@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
     # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
-    #
+
     # get_resolved_redirects(DATA_DIR)
 
     # get_id2title_no_redirect(DATA_DIR)

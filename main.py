@@ -34,24 +34,6 @@ np.set_printoptions(precision=3)
 np.set_printoptions(suppress=True)
 
 
-def convert_graph_file(fname):
-    fpath_old = os.path.join('enwiki', fname)
-    fpath_new = os.path.join('enwiki', ''.join(fname.split('_original')))
-    node2nbs = collections.defaultdict(list)
-    with io.open(fpath_old, encoding='utf-8') as infile:
-        for lidx, line in enumerate(infile):
-            if (lidx % 1000) == 0:
-                print('\r', lidx, '/', 80482288, end='')
-            if lidx == 0:
-                continue
-            node, nb = line.strip().split('\t')[:2]
-            node2nbs[node].append(nb)
-
-    with io.open(fpath_new, 'w', encoding='utf-8') as outfile:
-        for node, nbs in node2nbs.items():
-            outfile.write(node + '\t' + ';'.join(nbs) + '\n')
-
-
 def get_id_dict(data_dir, wiki_name, dump_date):
     id2title = {}
     fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-page.sql')
@@ -71,47 +53,6 @@ def get_id_dict(data_dir, wiki_name, dump_date):
                 id2title[int(page_id)] = url_escape(page_title)
         with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
             pickle.dump(id2title, outfile, -1)
-
-
-def check_files(data_dir):
-    damaged = []
-    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
-    for pid in debug_iter(id2title.keys()):
-        pid_u = unicode(pid)
-        fpath = os.path.join(data_dir, 'html', pid_u + '.txt   ')
-        with io.open(fpath, encoding='utf-8', errors='ignore') as infile:
-            try:
-                data = json.load(infile)
-            except ValueError:
-                print('\n\t', pid)
-                damaged.append(pid)
-
-    with io.open(os.path.join(data_dir, 'damaged.txt'), 'w', encoding='utf-8')\
-            as outfile:
-        for d in sorted(damaged):
-            outfile.write(unicode(d) + '\n')
-
-
-def get_redirect_dict(data_dir, wiki_name, dump_date):
-    id2redirect = {}
-    fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-redirect.sql')
-    with io.open(fname, encoding='utf-8') as infile:
-        lidx = 1
-        for line in infile:
-            print('\r', lidx, end='')
-            lidx += 1
-            if not line.startswith('INSERT'):
-                continue
-            # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
-            # matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
-            matches = re.findall(r"\((\d+),(\d+),'(.*?)((?<!\\)|(?<=\\\\))'", line)
-            for page_id, page_namespace, page_title, dummy in matches:
-                if page_namespace != '0':
-                    continue
-                id2redirect[int(page_id)] = url_escape(page_title)
-
-        with open(os.path.join(data_dir, 'id2redirect.obj'), 'wb') as outfile:
-            pickle.dump(id2redirect, outfile, -1)
 
 
 def get_resolved_redirects(data_dir):
@@ -822,7 +763,6 @@ class Graph(object):
         lbd_add = lambda: self.graph.add_vertex()
         self.name2node = collections.defaultdict(lbd_add)
         self.stats = {}
-        self.id2views = {}
 
     def load_graph(self, refresh=False):
         if refresh:
@@ -947,32 +887,6 @@ class Graph(object):
         self.stats['bow_tie'] = self.bow_tie()
         self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         self.save_stats()
-
-    def get_recommendation_stats(self):
-        if self.id2views == {}:
-            fpath = os.path.join('data', 'pageviews', 'filtered')
-            fname = 'id2views-' + self.label + '.obj'
-            self.id2views = read_pickle(os.path.join(fpath, fname))
-
-        # get SCC
-        component, histogram = gt.label_components(self.graph)
-        scc_size = 100 * max(histogram) / self.graph.num_vertices()
-        label_of_largest_component = np.argmax(histogram)
-        largest_component = (component.a == label_of_largest_component)
-        lcp = gt.GraphView(self.graph, vfilt=largest_component)
-        scc = set([int(n) for n in lcp.vertices()])
-        scc_node = random.sample(scc, 1)[0]
-
-        # get IN
-        graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
-        inc = np.nonzero(gt.label_out_component(graph_reversed, scc_node).a)[0]
-
-        # get view count ratio
-        scc_sum_vc = sum(self.id2views[v] for v in scc)
-        inc_sum_vc = sum(self.id2views[v] for v in inc)
-        vc_ratio = (scc_sum_vc / len(scc)) / (inc_sum_vc / len(inc))
-
-        return scc_size, vc_ratio
 
     def print_stats(self):
         with open(self.stats_file_path, 'rb') as infile:
@@ -1423,22 +1337,23 @@ if __name__ == '__main__':
     pid = '1698838'
     wiki = 'ja'
 
-    # import urllib2
-    # url = 'https://' + wiki + '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
-    # print(url % pid)
-    # response = urllib2.urlopen(url % pid)
-    # data = response.read().decode('utf-8')
-    # with io.open('test2.txt', 'w', encoding='utf-8') as outfile:
-    #     outfile.write(data)
+    import urllib2
+    url = 'https://' + wiki +\
+          '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959' + \
+          '&prop=revisions|categories&continue&pageids=%s&action=query' + \
+          '&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
+    print(url % pid)
+    response = urllib2.urlopen(url % pid)
+    data = response.read().decode('utf-8')
+    with io.open('test2.txt', 'w', encoding='utf-8') as outfile:
+        outfile.write(data)
 
     import json
     with io.open('test2.txt', encoding='utf-8', errors='ignore') as infile:
         data_original = json.load(infile)
     data = data_original['query']['pages'][pid]['revisions'][0]['*']
 
-    # parser = WikipediaHTMLParser(wiki + 'wiki', debug=True)
-    # parser = WikipediaHTMLParser(wiki + 'wiki', debug=False)
-    parser = WikipediaHTMLAllParser(wiki + 'wiki')
+    parser = WikipediaHTMLAllParser()
     parser.feed(data)
 
     ib_links, lead_links, first_p_len = parser.get_data()
