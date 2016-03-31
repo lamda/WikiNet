@@ -280,8 +280,10 @@ class Plotter(object):
 
     def plot_recommendations(self):
         for prop in [
-            'recs_vc_ratio',
-            # 'recs_scc_size',
+            'recs_vc_based_vc_ratio',
+            'recs_vc_based_scc_size',
+            'recs_scc_based_vc_ratio',
+            'recs_scc_based_scc_size',
         ]:
             fig, ax = plt.subplots(1, figsize=(6, 3))
             bar_vals = [self.graph_data[graph_name][prop]

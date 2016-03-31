@@ -112,21 +112,6 @@ class Recommender(object):
         fname = 'id2views-' + self.label + '.obj'
         self.id2views = read_pickle(os.path.join(fpath, fname))
 
-    def load_graphs(self):
-        self.g_small = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
-                             fname='links', use_sample=False, refresh=False,
-                             N=self.small_n)
-        self.g_small.load_graph(refresh=False)
-        self.g_large = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
-                             fname='links', use_sample=False, refresh=False,
-                             N=self.large_n)
-        self.g_large.load_graph(refresh=False)
-
-
-class ViewCountRecommender(Recommender):
-    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
-        Recommender.__init__(self, label, small_n, large_n, n_recs)
-
         # get SCC
         component, histogram = gt.label_components(self.g_small.graph)
         scc_size = 100 * max(histogram) / self.g_small.graph.num_vertices()
@@ -157,6 +142,21 @@ class ViewCountRecommender(Recommender):
         self.wid2node_large = {self.g_large.graph.vp['name'][v]: v
                                for v in self.g_large.graph.vertices()}
 
+    def load_graphs(self):
+        self.g_small = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
+                             fname='links', use_sample=False, refresh=False,
+                             N=self.small_n)
+        self.g_small.load_graph(refresh=False)
+        self.g_large = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
+                             fname='links', use_sample=False, refresh=False,
+                             N=self.large_n)
+        self.g_large.load_graph(refresh=False)
+
+
+class ViewCountRecommender(Recommender):
+    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
+        Recommender.__init__(self, label, small_n, large_n, n_recs)
+
     def add_recommendation(self):
         # find the top recommendation
         scc_node, inc_node, vc_max = None, None, -1
@@ -167,11 +167,12 @@ class ViewCountRecommender(Recommender):
             candidates = set(nbs_large) - set(node_small.out_neighbours())
             for cand in candidates:
                 if self.id2views[self.g_small.vp['name'][cand]] > vc_max:
-                    node_max = cand
+                    scc_node = node_small
+                    inc_node = cand
                     vc_max = self.id2views[self.g_small.vp['name'][cand]]
 
         # find out the effects of adding it
-        reached_nodes = find_nodes(node_max, self.scc)
+        reached_nodes = find_nodes(inc_node, self.scc)
         for rn in reached_nodes:
             self.scc.add(rn)
             self.inc.remove(rn)
@@ -191,7 +192,9 @@ class ViewCountRecommender(Recommender):
             scc_size, vc_ratio = self.add_recommendation()
             self.scc_sizes.append(scc_size)
             self.vc_ratios.append(vc_ratio)
-        self.g_small.stats['recs_vc_ratio'] = self.vc_ratios
+        self.g_small.stats['recs_vc_based_vc_ratio'] = self.vc_ratios
+        self.g_small.stats['recs_vc_based_scc_size'] = self.scc_sizes
+        self.g_small.save_stats()
 
 
 class SccSizeRecommender(Recommender):
@@ -221,8 +224,34 @@ class SccSizeRecommender(Recommender):
         return scc_size, vc_ratio
 
     def add_recommendation(self):
-        # TODO: find an effective way of adding recommendations
-        pass
+        # find the top recommendation
+        scc_node, inc_node, reach_max = None, None, -1
+        for node_small in self.scc:
+            node_large = self.wid2node_large[self.g_small.graph.vp['name'][node_small]]
+            nbs_large = [self.wid2node_small[self.g_large.graph.vp['name'][nb]]
+                         for nb in node_large.out_neighbours()]
+            candidates = set(nbs_large) - set(node_small.out_neighbours())
+            for cand in candidates:
+                reach = len(find_nodes(cand, self.scc))
+                if reach > reach_max:
+                    scc_node = node_small
+                    inc_node = cand
+                    reach_max = reach
+
+        # find out the effects of adding it
+        reached_nodes = find_nodes(inc_node, self.scc)
+        for rn in reached_nodes:
+            self.scc.add(rn)
+            self.inc.remove(rn)
+            self.scc_sum_vc += self.id2views[rn]
+            self.inc_sum_vc -= self.id2views[rn]
+        vc_ratio = (self.scc_sum_vc / len(self.scc)) /\
+                   (self.inc_sum_vc / len(self.inc))
+
+        # add it
+        self.g_small.graph.add_edge(scc_node, inc_node)
+
+        return len(self.scc), vc_ratio
 
     def recommend(self):
         for i in range(self.n_recs):
@@ -230,15 +259,17 @@ class SccSizeRecommender(Recommender):
             scc_size, vc_ratio = self.add_recommendation()
             self.scc_sizes.append(scc_size)
             self.vc_ratios.append(vc_ratio)
-        self.g_small.stats['recs_scc_size'] = self.scc_sizes
+        self.g_small.stats['recs_scc_based_vc_ratio'] = self.vc_ratios
+        self.g_small.stats['recs_scc_based_scc_size'] = self.scc_sizes
+        self.g_small.save_stats()
 
 
 if __name__ == '__main__':
-    vc_recommender = ViewCountRecommender('simplewiki')
-    vc_recommender.recommend_view_counts()
-    # recommender.load_graphs()
-    # recommender.recommend_scc_size()
+    vc_recommender = ViewCountRecommender('simple')
+    vc_recommender.recommend()
 
+    # scc_recommender = SccSizeRecommender('simplewiki')
+    # scc_recommender.recommend()
 
 
     # test_node2reach()
