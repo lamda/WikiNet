@@ -146,7 +146,8 @@ class ViewCountRecommender(Recommender):
         # get view count ratio
         self.scc_sum_vc = sum(self.id2views[v] for v in self.scc)
         self.inc_sum_vc = sum(self.id2views[v] for v in self.inc)
-        vc_ratio = (self.scc_sum_vc / len(self.scc)) / (self.inc_sum_vc / len(self.inc))
+        vc_ratio = (self.scc_sum_vc / len(self.scc)) /\
+                   (self.inc_sum_vc / len(self.inc))
 
         self.scc_sizes = [scc_size]
         self.vc_ratios = [vc_ratio]
@@ -176,11 +177,13 @@ class ViewCountRecommender(Recommender):
             self.inc.remove(rn)
             self.scc_sum_vc += self.id2views[rn]
             self.inc_sum_vc -= self.id2views[rn]
+        vc_ratio = (self.scc_sum_vc / len(self.scc)) /\
+                   (self.inc_sum_vc / len(self.inc))
 
         # add it
         self.g_small.graph.add_edge(scc_node, inc_node)
 
-        return scc_size, vc_ratio
+        return len(self.scc), vc_ratio
 
     def recommend(self):
         for i in range(self.n_recs):
@@ -217,7 +220,16 @@ class SccSizeRecommender(Recommender):
 
         return scc_size, vc_ratio
 
+    def add_recommendation(self):
+        # TODO: find an effective way of adding recommendations
+        pass
+
     def recommend(self):
+        for i in range(self.n_recs):
+            print(i + 1, '/', self.n_recs)
+            scc_size, vc_ratio = self.add_recommendation()
+            self.scc_sizes.append(scc_size)
+            self.vc_ratios.append(vc_ratio)
         self.g_small.stats['recs_scc_size'] = self.scc_sizes
 
 
