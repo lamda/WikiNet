@@ -7,4 +7,6 @@
 *.sql
 *.tsv
 
+plots/alluvial/*wiki.html
+plots/alluvial/*wiki.js
 data/w4s/*

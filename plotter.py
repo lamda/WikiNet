@@ -68,6 +68,8 @@ class Plotter(object):
             self.plot('outdegree_av')
         if 'cc' in to_plot:
             self.plot('cc')
+        if 'recommendations' in to_plot:
+            self.plot_recommendations()
         if 'ecc' in to_plot:
             self.plot_ecc()
         if 'pls' in to_plot:
@@ -282,20 +284,13 @@ class Plotter(object):
         for prop in [
             'recs_vc_based_vc_ratio',
             'recs_vc_based_scc_size',
-            'recs_scc_based_vc_ratio',
-            'recs_scc_based_scc_size',
+            # 'recs_scc_based_vc_ratio',
+            # 'recs_scc_based_scc_size',
         ]:
             fig, ax = plt.subplots(1, figsize=(6, 3))
-            bar_vals = [self.graph_data[graph_name][prop]
-                        for graph_name in self.graph_order]
-            x_vals = range(len(self.graph_order))
-            bars = ax.bar(x_vals, bar_vals, align='center')
-
-            # Beautification
-            for bidx, bar in enumerate(bars):
-                bar.set_fill(False)
-                bar.set_hatch(self.hatches[bidx])
-                bar.set_edgecolor(self.colors[bidx])
+            bar_vals = self.graph_data['first_p'][prop]
+            x_vals = range(len(bar_vals))
+            ax.plot(x_vals, bar_vals)
 
             ax.set_xlim(-0.5, len(self.graph_order) - 0.5)
             ax.set_xticks([x - 0.25 for x in x_vals])
@@ -304,9 +299,9 @@ class Plotter(object):
             labels = [g for g in self.graph_order]
             ax.set_xticklabels(labels, rotation='-50', ha='left')
 
-            if prop == 'recs_vc_ratio':
+            if 'vc_ratio' in prop:
                 ylabel = 'View Count Ratio'
-            elif prop == 'recs_scc_size':
+            elif 'scc_size' in prop:
                 ylabel = 'SCC size'
             ax.set_ylabel(ylabel)
             ax.set_xlim(0, 101)
@@ -606,11 +601,11 @@ class Plotter(object):
 
 if __name__ == '__main__':
     n_vals = [
-        '1',
+        # '1',
         'first_p',
-        'lead',
-        'all',
-        'infobox',
+        # 'lead',
+        # 'all',
+        # 'infobox',
     ]
     to_plot = [
         # 'cycles',
@@ -619,24 +614,25 @@ if __name__ == '__main__':
         # 'cp_count',
         # 'cp_size',
         # 'cc',
+        'recommendations',
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         os.remove(os.path.join('plots', 'cycles.txt'))
 
     for wp in [
-        # 'simple',
+        'simple',
 
-        'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'it',
-        'ja',
-        'nl',
+        # 'en',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)
