@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     for n_val in [
         1,
-        'first_p',
+        # 'first_p',
         # 'lead',
         # 'infobox',
         # 'all',
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         g.load_graph(refresh=False)
         # g.compute_stats()
         g.update_stats()
-        g.print_stats()
+        # g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

@@ -271,12 +271,12 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             HTMLParser.HTMLParser.feed(self, line)
 
     def handle_starttag(self, tag, attrs):
-        if self.debug and tag == 'a' and (self.parentheses_counter == 0 or self.first_link_found):
-            print('    -->', self.parentheses_counter)
-            print('    -->', self.tracking_table, self.table_counter,
-                  self.tracking_div, self.div_counter)
-            print(tag, attrs)
-            # pdb.set_trace()
+        # if self.debug and tag == 'a' and (self.parentheses_counter == 0 or self.first_link_found):
+        #     print('    -->', self.parentheses_counter)
+        #     print('    -->', self.tracking_table, self.table_counter,
+        #           self.tracking_div, self.div_counter)
+        #     print(tag, attrs)
+        #     # pdb.set_trace()
 
         # if self.debug and tag == 'a' and self.div_counter_any == 0 and\
         #         self.table_counter_any == 0:
@@ -874,8 +874,7 @@ class Graph(object):
         self.stats['cp_size'], self.stats['cp_count'] = self.largest_component()
         # self.stats['pls'], self.stats['pls_max'] = self.path_lengths()
         if self.N == 1:
-            self.stats['singles'], self.stats['comp_stats'] =\
-                self.cycle_components()
+            self.stats['comp_stats'] = self.cycle_components()
         self.stats['bow_tie'] = self.bow_tie()
         self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         # self.stats['lc_ecc'] = self.eccentricity()
@@ -884,6 +883,8 @@ class Graph(object):
     def update_stats(self):
         print('updating stats...')
         self.load_stats()
+        if self.N == 1:
+            self.stats['comp_stats'] = self.cycle_components()
         self.stats['bow_tie'] = self.bow_tie()
         self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         self.save_stats()
@@ -968,48 +969,37 @@ class Graph(object):
 
     def cycle_components(self):
         print('cycle_components()')
-        component, histogram = gt.label_components(self.graph)
+
         print('    get number of vertices per component')
+        component, histogram = gt.label_components(self.graph)
         comp2verts = {i: list() for i in range(len(histogram))}
         for node, comp in enumerate(component.a):
             comp2verts[comp].append(node)
-        comp2verts = {k: v for k, v in comp2verts.items() if len(v) > 1}
-        singles = self.graph.num_vertices() -\
-            sum(len(i) for i in comp2verts.items())
-
-        print('    get all components with at least two vertices')
         comps = []
-        for comp, verts in comp2verts.items():
+        for cidx, (comp, verts) in enumerate(comp2verts.items()):
+            if cidx + 1 % 1000 == 0:
+                print('\r       ', cidx + 1, '/', len(comps), end='')
+            # skip singleton component that are not endpoints
+            if len(verts) == 1 and self.graph.vertex(verts[0]).out_degree() > 0:
+                continue
             comps.append(verts)
-        comps.sort(key=len)
 
         print('    get the sizes of the incomponents')
         incomps = []
         graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
-        for comp in comps:
-            comp_node = random.sample(comp, 1)[0]
-            incomps.append(
-                np.count_nonzero(
-                    gt.label_out_component(graph_reversed, comp_node).a
-                )
+        for cidx, comp in enumerate(comps):
+            if cidx+1 % 1000 == 0:
+                print('\r       ', cidx+1, '/', len(comps), end='')
+            inc = np.count_nonzero(
+                gt.label_out_component(graph_reversed, comp[0]).a
             )
+            incomps.append(inc)
 
         print('    get the names of nodes in the components')
-        comp_names = []
-        for cidx, comp in enumerate(comps):
-            # print('\r       ', cidx, '/', len(comps), end='')
-            names = []
-            node = random.sample(comp, 1)[0]
-            name_start = self.graph.vp['title'][node]
-            name = ''
-            while name != name_start:
-                node = self.graph.vertex(node).out_neighbours().next()
-                name = self.graph.vp['title'][node]
-                # print(node, name)
-                # pdb.set_trace()
-                names.append(name)
-            comp_names.append(names)
-        print()
+        comp_names = [
+            [self.graph.vp['title'][node] for node in comp]
+            for comp in comps
+        ]
 
         comp_stats = []
         for comp, incomp_size, comp_name in zip(comps, incomps, comp_names):
@@ -1022,7 +1012,8 @@ class Graph(object):
                 }
             )
         comp_stats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
-        return singles, comp_stats
+
+        return comp_stats
 
     def bow_tie_old(self):
         print('bow tie (old and slow version)')

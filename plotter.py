@@ -31,6 +31,7 @@ class Plotter(object):
             (0.7019607843137254, 0.7019607843137254, 0.7019607843137254)
         ]
         self.label2language = {
+            'simple': 'Simple English',
             'en': 'English',
             'de': 'German',
             'fr': 'French',
@@ -100,7 +101,7 @@ class Plotter(object):
                 'Druckerzeugnis': 'Printed matter',
                 'Zeitschrift': 'Magazine',
 
-                #fr
+                # fr
                 'Connaissance': 'Knowledge',
                 'Notion': 'Notion (philosophy)',
                 'Grec ancien': 'Ancient Greek',
@@ -127,7 +128,7 @@ class Plotter(object):
                 'Código (comunicación)': 'Code',
                 'Comunicación': 'Communication',
 
-                #it
+                # it
                 'Conoscenza': 'Knowledge',
                 'Consapevolezza': 'Awareness',
                 'Psicologia': 'Psychology',
@@ -144,14 +145,14 @@ class Plotter(object):
                 'Ordinamento giuridico': 'Legal system',
                 'Diritto': 'Law',
 
-                #nl
+                # nl
                 'Kennis': 'Knowledge',
                 'Weten': 'Know-how',
                 'Leven': 'Life',
                 'Organisme': 'Organism',
                 'Continentaal plat': 'Continental shelf',
 
-                #ru
+                # ru
                 'Философия': 'Philosophy',
                 'Познание': 'Cognition',
                 'Метод': 'Method (philosophy)',
@@ -169,7 +170,7 @@ class Plotter(object):
                 'Солнце': 'Sun',
                 'Звезда': 'Star',
 
-                #ja
+                # ja
                 'インド・ヨーロッパ語族': 'Indo-European Languages',
                 'ヨーロッパ': 'Europe',
                 '地球': 'Earth',
@@ -204,7 +205,7 @@ class Plotter(object):
 
         fpath = os.path.join('plots', 'cycles.txt')
         cstats = self.graph_data['1']['comp_stats']
-        no_articles = sum(comp_stat['incomp_size'] for comp_stat in cstats)
+        no_articles = self.graph_data['1']['graph_size']
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         with io.open(fpath, 'a', encoding='utf-8') as outfile:
             text = self.label2language[self.label[:-4]] + ' & ' + self.label[:-4]
@@ -601,27 +602,30 @@ class Plotter(object):
 
 if __name__ == '__main__':
     n_vals = [
-        # '1',
-        'first_p',
+        '1',
+        # 'first_p',
         # 'lead',
         # 'all',
         # 'infobox',
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
-        'recommendations',
+        # 'recommendations',
         # 'ecc',
         # 'pls',
         # 'bow_tie',
         # 'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
-        os.remove(os.path.join('plots', 'cycles.txt'))
+        try:
+            os.remove(os.path.join('plots', 'cycles.txt'))
+        except OSError:
+            pass
 
     for wp in [
         'simple',
