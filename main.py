@@ -34,60 +34,292 @@ np.set_printoptions(precision=3)
 np.set_printoptions(suppress=True)
 
 
-def get_id_dict(data_dir, wiki_name, dump_date):
-    id2title = {}
-    fname = os.path.join(data_dir, wiki_name + '-' + dump_date + '-page.sql')
-    with io.open(fname, encoding='utf-8') as infile:
-        lidx = 1
-        for line in infile:
-            print('\r', lidx, end='')
-            lidx += 1
-            if not line.startswith('INSERT'):
-                continue
-            # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
-            # matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
-            matches = re.findall(r"\((\d+),(\d+),'(.*?)((?<!\\)|(?<=\\\\))'", line)
-            for page_id, page_namespace, page_title, dummy in matches:
-                if page_namespace != '0':
+class Wikipedia(object):
+    def __init__(self, label, dump_date):
+        self.wiki_code = label
+        self.wiki_name = label + 'wiki'
+        self.data_dir = os.path.join('data', label)
+        self.dump_date = dump_date
+        self._id2title, self._title2id, self._title2redirect = None, None, None
+        self._parsers = {}
+
+    @property
+    def id2title(self):
+        if self._id2title is None:
+            fpath = os.path.join(self.data_dir, 'id2title.obj')
+            self._id2title = read_pickle(fpath)
+        return self._id2title
+
+    @property
+    def title2id(self):
+        if self._id2title is None:
+            fpath = os.path.join(self.data_dir, 'id2title.obj')
+            self._id2title = read_pickle(fpath)
+        if self._title2id is None:
+            self._title2id = {v: k for k, v in self._id2title.items()}
+        return self._title2id
+
+    @property
+    def title2redirect(self):
+        if self._title2redirect is None:
+            fpath = os.path.join(self.data_dir, 'title2redirect.obj')
+            self._title2redirect = read_pickle(fpath)
+        return self._title2redirect
+
+    def get_parser(self, link_type):
+        try:
+            return self._parsers[link_type]
+        except KeyError:
+            if link_type == 'lead':
+                parser = WikipediaHTMLLeadParser(self.wiki_name)
+            elif link_type == 'all':
+                parser = WikipediaHTMLAllParser()
+            elif link_type == 'divs_tables':
+                parser = WikipediaDivTableParser()
+            else:
+                print('Parser type not supported')
+                pdb.set_trace()
+            self._parsers[link_type] = parser
+            return self._parsers[link_type]
+
+    def get_id_dict(self):
+        id2title = {}
+        fname = os.path.join(self.data_dir, self.wiki_name + '-' +
+                             self.dump_date + '-page.sql')
+        with io.open(fname, encoding='utf-8') as infile:
+            lidx = 1
+            for line in infile:
+                print('\r', lidx, end='')
+                lidx += 1
+                if not line.startswith('INSERT'):
                     continue
-                id2title[int(page_id)] = url_escape(page_title)
-        with open(os.path.join(data_dir, 'id2title.obj'), 'wb') as outfile:
-            pickle.dump(id2title, outfile, -1)
+                # matches = re.findall(r"\((\d+),(\d+),'([^\']+)", line)
+                # matches = re.findall(r"\((\d+),(\d+),'(.*?)(?<!\\)'", line)
+                matches = re.findall(
+                    r"\((\d+),(\d+),'(.*?)((?<!\\)|(?<=\\\\))'",
+                    line
+                )
+                for page_id, page_namespace, page_title, dummy in matches:
+                    if page_namespace != '0':
+                        continue
+                    id2title[int(page_id)] = url_escape(page_title)
+            with open(os.path.join(self.data_dir, 'id2title.obj'), 'wb')\
+                    as outfile:
+                pickle.dump(id2title, outfile, -1)
+
+    def crawl(self, recrawl_damaged=False):
+        pids = sorted(self.id2title)
+        Crawler(self.wiki_name, self.wiki_code, self.data_dir, self.dump_date,
+                pids=pids, recrawl_damaged=recrawl_damaged)
+
+    def get_resolved_redirects(self):
+        print('getting resolved redirects...')
+        title2redirect = {}
+        file_names = [
+            f
+            for f in os.listdir(os.path.join(self.data_dir, 'html'))
+            if f.endswith('.obj')
+        ]
+        for fidx, file_name in enumerate(file_names):
+            print('\r', fidx+1, '/', len(file_names), end='')
+            df = pd.read_pickle(os.path.join(self.data_dir, 'html', file_name))
+            df = df[~df['redirects_to'].isnull()]
+            for k, v in zip(df['title'], df['redirects_to']):
+                title2redirect[k] = v
+        print()
+
+        with open(os.path.join(self.data_dir, 'title2redirect.obj'), 'wb')\
+                as outfile:
+            pickle.dump(title2redirect, outfile, -1)
+
+    def get_links(self, link_type, start=None, stop=None):
+        print('getting links for type', link_type)
+
+        file_names = [
+            f
+            for f in os.listdir(os.path.join(self.data_dir, 'html'))
+            if f.endswith('.obj')
+        ][start:stop]
+
+        file_dir = os.path.join(self.data_dir, 'html', 'divs_tables')
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+
+        for fidx, file_name in enumerate(file_names):
+            print('\r', fidx+1, '/', len(file_names), end='')
+            if link_type == 'all_lead':
+                self.get_link_chunk_lead(file_name)
+            elif link_type == 'divs_tables':
+                self.get_link_chunk_divs_tables(file_name)
+        print()
+
+        if link_type == 'all_lead':
+            self.combine_link_chunks()
+        elif link_type == 'divs_tables':
+            self.combine_divs_tables_chunks()
+
+    def get_link_chunk_lead(self, file_path):
+        parser_lead = self.get_parser('lead')
+        parser_all = self.get_parser('all')
+        df = pd.read_pickle(file_path)
+
+        parsed_first_links, parsed_ib_links = [], []
+        parsed_lead_links, first_p_lens = [], []
+        link_list = []
+        for idx, row in df.iterrows():
+            if pd.isnull(row['redirects_to']):
+                parser_lead.feed(row['content'])
+                first_link, ib_links, lead_links, first_p_len =\
+                    parser_lead.get_data()
+                # fix double % encoding
+                first_link = first_link.replace('%25', '%')
+                ib_links = [l.replace('%25', '%') for l in ib_links]
+                lead_links = [l.replace('%25', '%') for l in lead_links]
+
+                # print(first_link)
+                # print('.........')
+                # for l in ib_links[:10]:
+                #     print('   ', l)
+                # print('.........')
+                # for l in lead_links[:10]:
+                #     print('   ', l)
+                # pdb.set_trace()
+                first_li = self.resolve_redirects([first_link])[0]
+                ib_li = self.resolve_redirects(ib_links)
+                lead_li = self.resolve_redirects(lead_links)
+
+                parsed_first_links.append(unicode(first_li))
+                parsed_ib_links.append([unicode(l) for l in ib_li])
+                parsed_lead_links.append([unicode(l) for l in lead_li])
+                first_p_lens.append(first_p_len)
+                # ---
+                parser_all.feed(row['content'])
+                links = parser_all.get_data()
+                link_list.append(map(unicode, self.resolve_redirects(links)))
+            else:
+                parsed_ib_links.append([])
+                parsed_lead_links.append([])
+                first_p_lens.append(0)
+                # ---
+                link_list.append([])
+
+        df['first_link'] = parsed_first_links
+        df['ib_links'] = parsed_ib_links
+        df['lead_links'] = parsed_lead_links
+        df['first_p_len'] = first_p_lens
+        df['all_links'] = link_list
+        pd.to_pickle(df, file_path)
+
+    def get_link_chunk_divs_tables(self, file_name):
+        parser = self.get_parser('dics_tables')
+        file_path = os.path.join(self.data_dir, 'html', file_name)
+        df = pd.read_pickle(file_path)
+        divclass2id = collections.defaultdict(list)
+        tableclass2id = collections.defaultdict(list)
+
+        for idx, row in df.iterrows():
+            if pd.isnull(row['redirects_to']):
+                parser.feed(row['content'], row['pid'])
+                divs, tables = parser.get_data()
+
+                for k, v in divs.items():
+                    divclass2id[k].append(v)
+                for k, v in tables.items():
+                    tableclass2id[k].append(v)
+
+        file_dir = os.path.join(self.data_dir, 'html', 'divs_tables')
+        write_pickle(os.path.join(file_dir, file_name),
+                     [divclass2id, tableclass2id])
+
+    def combine_link_chunks(self):
+        print('combining link chunks...')
+        file_names = [
+            f
+            for f in os.listdir(os.path.join(self.data_dir, 'html'))
+            if f.endswith('.obj')
+        ]
+        with io.open(os.path.join(self.data_dir, 'alllinks.tsv'), 'w',
+                     encoding='utf-8') as outfile_all, \
+            io.open(os.path.join(self.data_dir, 'links.tsv'), 'w',
+                    encoding='utf-8') as outfile_lead:
+            for fidx, file_name in enumerate(sorted(file_names)):
+                print('\r', fidx + 1, '/', len(file_names), file_name, end='')
+                fpath = os.path.join(self.data_dir, 'html', file_name)
+                df = pd.read_pickle(fpath)
+                for idx, row in df.iterrows():
+                    if pd.isnull(row['redirects_to']):
+                        outfile_all.write(
+                            unicode(row['pid']) + '\t' +
+                            ';'.join(row['all_links']) + '\n'
+                        )
+                        outfile_lead.write(
+                            unicode(row['pid']) + '\t' +
+                            row['first_link'] + '\t' +
+                            ';'.join(row['ib_links']) + '\t' +
+                            ';'.join(row['lead_links']) + '\t' +
+                            unicode(row['first_p_len']) + '\n'
+                        )
+            print()
+
+    def combine_divs_tables_chunks(self):
+        print('combining divs and tables chunks...')
+        fpath = os.path.join(self.data_dir, 'html', 'divs_tables')
+        file_names = [f for f in os.listdir(fpath) if f.endswith('.obj')]
+        divclass2id = collections.defaultdict(list)
+        tableclass2id = collections.defaultdict(list)
+        for fidx, file_name in enumerate(sorted(file_names)):
+            print('\r', fidx + 1, '/', len(file_names), file_name, end='')
+            fpath = os.path.join(self.data_dir, 'html', 'divs_tables', file_name)
+            divs, tables = read_pickle(fpath)
+            for k, v in divs.items():
+                divclass2id[k] += v
+            for k, v in tables.items():
+                tableclass2id[k] += v
+
+        with io.open(os.path.join(self.data_dir, 'tables.tsv'), 'w',
+                     encoding='utf-8') as outfile:
+            for k in sorted(tableclass2id, key=lambda k: len(tableclass2id[k]),
+                            reverse=True):
+                outfile.write(unicode(len(tableclass2id[k])) + '\t' +
+                              ' '.join(sorted(k)) + '\t' +
+                              ';'.join(
+                                  map(unicode, tableclass2id[k][:20])) + '\n')
+
+        with io.open(os.path.join(self.data_dir, 'divs.tsv'), 'w',
+                     encoding='utf-8') as outfile:
+            for k in sorted(divclass2id, key=lambda k: len(divclass2id[k]),
+                            reverse=True):
+                outfile.write(unicode(len(divclass2id[k])) + '\t' +
+                              ' '.join(sorted(k)) + '\t' +
+                              ';'.join(
+                                  map(unicode, divclass2id[k][:20])) + '\n')
+
+    def resolve_redirects(self, links):
+        result = []
+        for link in links:
+            try:
+                result.append(self.title2id[self.title2redirect[link]])
+            except KeyError:
+                try:
+                    result.append(self.title2id[link])
+                except KeyError:
+                    # a link to an article that didn't exist at DUMP_DATE, but
+                    # unfortunately is linked in the old revision retrieved via API
+                    # print('       ', link, 'not found ----')
+                    pass
+        return result
+
+    def cleanup(self):
+        files = [f for f in os.listdir(self.data_dir) if f.endswith('.gt')]
+        for f in files:
+            os.remove(os.path.join(self.data_dir, f))
 
 
-def get_resolved_redirects(data_dir):
-    print('getting resolved redirects...')
-    title2redirect = {}
-    file_names = [
-        f
-        for f in os.listdir(os.path.join(data_dir, 'html'))
-        if f.endswith('.obj')
-    ]
-    for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names), end='')
-        df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
-        df = df[~df['redirects_to'].isnull()]
-        for k, v in zip(df['title'], df['redirects_to']):
-            title2redirect[k] = v
-    print()
-
-    with open(os.path.join(data_dir, 'title2redirect.obj'), 'wb') as outfile:
-        pickle.dump(title2redirect, outfile, -1)
-
-
-def crawl(data_dir, wiki_name, wiki_code, dump_date, recrawl_damaged=False):
-    with open(os.path.join(data_dir, 'id2title.obj'), 'rb') as infile:
-        id2title = pickle.load(infile)
-    pids = sorted(id2title)
-    Crawler(wiki_name, wiki_code, data_dir, dump_date, pids=pids,
-            recrawl_damaged=recrawl_damaged)
-
-
-class WikipediaHTMLParser(HTMLParser.HTMLParser):
+class WikipediaHTMLLeadParser(HTMLParser.HTMLParser):
     def __init__(self, label, debug=False):
         HTMLParser.HTMLParser.__init__(self)
         self.label = label
-        self.found_links = 0
+        self.first_link = None
         self.lead_links = []
         self.infobox_links = []
         self.tracking_link = False
@@ -104,26 +336,6 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.tracking_table = 0
         self.debug = debug
         self.debug_found = False
-
-        self.skip_divs = [
-            'magnify',
-            'metadata',
-            'noprint',
-            'rellink',
-            'thumb',
-            'thumbcaption',
-            'thumbimage',
-            'thumbinner',
-            'toc',
-
-            # de
-            'navcontent',
-            'navhead',
-            'navframe',
-            'coordinates',
-            'sisterproject',
-            'gallerytext',
-        ]
 
         self.japars_open = [
             u'\uff08',
@@ -228,7 +440,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             pdb.set_trace()
 
     def reset(self):
-        self.found_links = 0
+        self.first_link = None
         self.lead_links = []
         self.infobox_links = []
         self.tracking_link = False
@@ -248,16 +460,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
 
     def feed(self, data):
         self.reset()
-        # end_strings = [
-        #     '<h2><span class="mw-headline" id="References">',
-        #     '<h2><span class="mw-headline" id="Notes">',
-        #     '<h2><span class="mw-headline" id="Footnotes">',
-        # ]
-        end_strings = [
-            '<h2><span class="mw-headline"',  # split at first section heading
-        ]
-        for end_string in end_strings:
-            data = data.split(end_string)[0]
+        data = data.split('<h2><span class="mw-headline"')[0]
 
         repl_strings = [
             '<p>\n</p>',
@@ -271,63 +474,41 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             HTMLParser.HTMLParser.feed(self, line)
 
     def handle_starttag(self, tag, attrs):
-        # if self.debug and tag == 'a' and (self.parentheses_counter == 0 or self.first_link_found):
-        #     print('    -->', self.parentheses_counter)
-        #     print('    -->', self.tracking_table, self.table_counter,
-        #           self.tracking_div, self.div_counter)
-        #     print(tag, attrs)
-        #     # pdb.set_trace()
+        if tag == 'p':
+            if self.div_counter_any < 1 and self.table_counter_any < 1 and \
+                    not self.first_p_found:
+                if self.debug:
+                    print('++++ FIRST P FOUND ++++')
+                self.first_p_found = True
+            self.parentheses_counter = 0
 
-        # if self.debug and tag == 'a' and self.div_counter_any == 0 and\
-        #         self.table_counter_any == 0:
-        #     print('a,', self.parentheses_counter, tag, attrs)
-
-        if (tag == 'a' and self.div_counter_any == 0 and
-                    self.table_counter_any == 0)\
-                and (self.parentheses_counter == 0 or self.first_link_found)\
-                and self.first_p_found:
-            # if self.debug:
-            #     print('a,', self.first_p_found, self.parentheses_counter, tag, attrs)
+        elif tag == 'a' and self.first_p_found and self.div_counter_any == 0 and\
+                self.table_counter_any == 0:
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
-                # a_init = href[0].split('/', 2)[-1].split(':')[0]
-                # if a_init not in self.file_prefixes:
                 self.lead_links.append(
                     href[0].split('/', 2)[-1].split('#')[0]
                 )
                 self.tracking_link = True
-                self.first_link_found = True
-                self.found_links += 1
+                if not self.first_link_found and self.parentheses_counter == 0:
+                    self.first_link = self.lead_links[-1]
+                    self.first_link_found = True
 
         elif tag == 'a' and self.tracking_table:
-            # if self.debug:
-            #     print('a', tag, attrs)
             href = [a[1] for a in attrs if a[0] == 'href']
             if href and href[0].startswith('/wiki/'):
-                # a_init = href[0].split('/', 2)[-1].split(':')[0]
-                # if a_init not in self.file_prefixes:
                 self.infobox_links.append(
                     href[0].split('/', 2)[-1].split('#')[0]
                 )
 
         elif tag == 'div':
-        #     pass
-            # if self.debug:
-            #     print('div OPEN', tag, attrs)
             self.div_counter_any += 1
-            # aclass = [a[1] for a in attrs if a[0] == 'class']
-            # if aclass and aclass[0] in self.skip_divs:
-            #     self.tracking_div += 1
-            # if self.tracking_div:
-            #     self.div_counter += 1
 
-        # elif tag == 'table':
         elif tag == 'table' or tag == 'dl':
             if self.debug:
                 print('table OPEN', tag, attrs)
             self.table_counter_any += 1
             aclass = [a[1] for a in attrs if a[0] == 'class' or a[0] == 'id']
-            # if aclass and 'infobox' in aclass[0]:
             if aclass:
                 acl = aclass[0].lower()
                 if any(s in acl for s in self.infobox_classes):
@@ -337,29 +518,13 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             if self.tracking_table:
                 self.table_counter += 1
 
-        elif tag == 'p':
-            if self.div_counter_any < 1 and self.table_counter_any < 1 and\
-                        not self.first_p_found:
-                if self.debug:
-                    print('++++ FIRST P FOUND ++++')
-                self.first_p_found = True
-            self.parentheses_counter = 0
-
     def handle_endtag(self, tag):
         if tag == 'a' and self.tracking_link:
             self.tracking_link = False
 
         elif tag == 'div':
-        #     pass
-            # if self.debug:
-            #     print('div CLOSE')
             self.div_counter_any -= 1
-            # if self.tracking_div > 0:
-            #     self.div_counter -= 1
-            #     if self.div_counter == 0:
-            #         self.tracking_div = min(0, self.tracking_div-1)
 
-        # elif tag == 'table':
         elif tag == 'table' or tag == 'dl':
             if self.debug:
                 print('table CLOSE')
@@ -374,15 +539,6 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             self.first_p_len = len(self.lead_links)
 
     def handle_data(self, d):
-        # print(d)
-        # if not self.tracking_link:
-        #     d = d.strip('\t\x0b\x0c\r ')
-        #     if d:
-        #         self.fed.append(d + ' ')
-        # d = d.strip('\t\x0b\x0c\r \n')
-        # if not d:
-        #     return
-
         if self.tracking_div or self.tracking_table:
             return
         par_diff = d.count('(') + d.count('[') + d.count('{') -\
@@ -396,7 +552,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.parentheses_counter += par_diff
 
     def get_data(self):
-        return self.infobox_links, self.lead_links, self.first_p_len
+        return self.first_link, self.infobox_links,\
+               self.lead_links, self.first_p_len
 
 
 class WikipediaHTMLAllParser(HTMLParser.HTMLParser):
@@ -468,269 +625,6 @@ class WikipediaDivTableParser(HTMLParser.HTMLParser):
 
     def get_data(self):
         return self.divclass2id, self.tableclass2id
-
-
-def resolve_redirects(links, title2id, title2redirect):
-    result = []
-    for link in links:
-        try:
-            result.append(title2id[title2redirect[link]])
-        except KeyError:
-            try:
-                result.append(title2id[link])
-            except KeyError:
-                # a link to an article that didn't exist at DUMP_DATE, but
-                # unfortunately is linked in the old revision retrieved via API
-                # print('       ', link, 'not found ----')
-                pass
-    return result
-
-
-def get_top_n_links_chunks(data_dir, start=None, stop=None, file_list=None):
-    print('getting top n links...')
-    label = data_dir.split(os.path.sep)[1]
-    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
-    title2id = {v: k for k, v in id2title.items()}
-    title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
-    if file_list:
-        file_names = file_list
-    else:
-        file_names = [
-            f
-            for f in os.listdir(os.path.join(data_dir, 'html'))
-            if f.endswith('.obj')
-        ][start:stop]
-    for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names), end='')
-        file_path = os.path.join(data_dir, 'html', file_name)
-        get_top_n_links(title2id, title2redirect, file_path, label)
-    print()
-
-
-def get_top_n_links(title2id, title2redirect, file_path, label):
-    # extract the first n links
-    parser = WikipediaHTMLParser(label=label, debug=False)
-    # parser = WikipediaHTMLParser(label=label, debug=True)
-    df = pd.read_pickle(file_path)
-
-    parsed_ib_links, parsed_lead_links, first_p_lens = [], [], []
-    for idx, row in df.iterrows():
-        # print(idx, row['pid'], row['title'],
-        #       'http://es.wikipedia.org/wiki/' + row['title'])
-        # if (idx % 1000) == 0:
-        #     print('\r', idx, end='')
-        if pd.isnull(row['redirects_to']):
-            parser.feed(row['content'])
-            # links = parser.get_data()[:20]
-            ib_links, lead_links, first_p_len = parser.get_data()
-            # fix double % encoding
-            ib_links = [l.replace('%25', '%') for l in ib_links]
-            lead_links = [l.replace('%25', '%') for l in lead_links]
-
-            # for l in ib_links[:10]:
-            #     print('   ', l)
-            # print('.........')
-            # for l in lead_links[:10]:
-            #     print('   ', l)
-            # pdb.set_trace()
-            ib_li = resolve_redirects(ib_links, title2id, title2redirect)
-            lead_li = resolve_redirects(lead_links, title2id, title2redirect)
-            parsed_ib_links.append([unicode(l) for l in ib_li])
-            parsed_lead_links.append([unicode(l) for l in lead_li])
-            first_p_lens.append(first_p_len)
-        else:
-            parsed_ib_links.append([])
-            parsed_lead_links.append([])
-            first_p_lens.append(0)
-
-    df['ib_links'] = parsed_ib_links
-    df['lead_links'] = parsed_lead_links
-    df['first_p_len'] = first_p_lens
-    pd.to_pickle(df, file_path)
-
-
-def combine_chunks(data_dir):
-    print('combining chunks...')
-    file_names = [
-        f
-        for f in os.listdir(os.path.join(data_dir, 'html'))
-        if f.endswith('.obj')
-    ]
-    with io.open(os.path.join(data_dir, 'links.tsv'), 'w',
-                 encoding='utf-8') as outfile:
-        for fidx, file_name in enumerate(sorted(file_names)):
-            # print('\r', fidx+1, '/', len(file_names), end='')
-            print('\r', fidx+1, '/', len(file_names), file_name, end='')
-            df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
-
-            for idx, row in df.iterrows():
-                if pd.isnull(row['redirects_to']):
-                    outfile.write(
-                        unicode(row['pid']) + '\t' + ';'.join(row['ib_links']) +
-                        '\t' + ';'.join(row['lead_links']) + '\t' +
-                        unicode(row['first_p_len']) + '\n'
-                    )
-        print()
-
-
-def get_divtable_classes_chunks(data_dir, start=None, stop=None, file_list=None):
-    print('getting div and table classes...')
-    if file_list:
-        file_names = file_list
-    else:
-        file_names = [
-            f
-            for f in os.listdir(os.path.join(data_dir, 'html'))
-            if f.endswith('.obj')
-        ][start:stop]
-    for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names), end='')
-        get_divtable_classes(data_dir, file_name)
-    print()
-
-
-def get_divtable_classes(data_dir, file_name):
-    # extract the table classes
-    parser = WikipediaDivTableParser()
-    file_path = os.path.join(data_dir, 'html', file_name)
-    df = pd.read_pickle(file_path)
-    divclass2id = collections.defaultdict(list)
-    tableclass2id = collections.defaultdict(list)
-
-    for idx, row in df.iterrows():
-        # print(idx, row['pid'], row['title'],
-        #       'http://simple.wikipedia.org/wiki/' + row['title'])
-        # if (idx % 1000) == 0:
-        #     print('\r', idx, end='')
-        if pd.isnull(row['redirects_to']):
-            parser.feed(row['content'], row['pid'])
-            divs, tables = parser.get_data()
-
-            for k, v in divs.items():
-                divclass2id[k].append(v)
-            for k, v in tables.items():
-                tableclass2id[k].append(v)
-    file_dir = os.path.join(data_dir, 'html', 'divtables')
-    if not os.path.exists(file_dir):
-        os.makedirs(file_dir)
-    write_pickle(os.path.join(file_dir, file_name), [divclass2id, tableclass2id])
-
-
-def combine_divtable_chunks(data_dir):
-    print('combining chunks...')
-    file_names = [
-        f
-        for f in os.listdir(os.path.join(data_dir, 'html', 'divtables'))
-        if f.endswith('.obj')
-    ]
-    divclass2id = collections.defaultdict(list)
-    tableclass2id = collections.defaultdict(list)
-    for fidx, file_name in enumerate(sorted(file_names)):
-        print('\r', fidx+1, '/', len(file_names), file_name, end='')
-        fpath = os.path.join(data_dir, 'html', 'divtables', file_name)
-        divs, tables = read_pickle(fpath)
-        for k, v in divs.items():
-            divclass2id[k] += v
-        for k, v in tables.items():
-            tableclass2id[k] += v
-
-    with io.open(os.path.join(data_dir, 'tables.tsv'), 'w',
-                 encoding='utf-8') as outfile:
-        for k in sorted(tableclass2id, key=lambda k: len(tableclass2id[k]),
-                        reverse=True):
-            outfile.write(unicode(len(tableclass2id[k])) + '\t' +
-                          ' '.join(sorted(k)) + '\t' +
-                          ';'.join(map(unicode, tableclass2id[k][:20])) + '\n')
-
-    with io.open(os.path.join(data_dir, 'divs.tsv'), 'w',
-                 encoding='utf-8') as outfile:
-        for k in sorted(divclass2id, key=lambda k: len(divclass2id[k]),
-                        reverse=True):
-            outfile.write(unicode(len(divclass2id[k])) + '\t' +
-                          ' '.join(sorted(k)) + '\t' +
-                          ';'.join(map(unicode, divclass2id[k][:20])) + '\n')
-
-
-def get_all_links_chunks(data_dir, start=None, stop=None, file_list=None):
-    print('getting all links...')
-    id2title = read_pickle(os.path.join(data_dir, 'id2title.obj'))
-    title2id = {v: k for k, v in id2title.items()}
-    title2redirect = read_pickle(os.path.join(data_dir, 'title2redirect.obj'))
-    if file_list:
-        file_names = file_list
-    else:
-        file_names = [
-            f
-            for f in os.listdir(os.path.join(data_dir, 'html'))
-            if f.endswith('.obj')
-        ][start:stop]
-    for fidx, file_name in enumerate(file_names):
-        print('\r', fidx+1, '/', len(file_names), end='')
-        get_all_links(title2id, title2redirect, data_dir, file_name)
-    print()
-
-
-def get_all_links(title2id, title2redirect, data_dir, file_name):
-    parser = WikipediaHTMLAllParser()
-    file_path = os.path.join(data_dir, 'html', file_name)
-    df = pd.read_pickle(file_path)
-    pid2links = {}
-
-    for idx, row in df.iterrows():
-        if pd.isnull(row['redirects_to']):
-            parser.feed(row['content'])
-            links = parser.get_data()
-            pid2links[row['pid']] = map(
-                unicode,
-                resolve_redirects(links, title2id, title2redirect)
-            )
-
-    file_dir = os.path.join(data_dir, 'html', 'alllinks')
-    if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-    write_pickle(os.path.join(file_dir, file_name), pid2links)
-
-
-def combine_all_chunks(data_dir):
-    print('combining all chunks...')
-    file_names = [
-        f
-        for f in os.listdir(os.path.join(data_dir, 'html', 'alllinks'))
-        if f.endswith('.obj')
-    ]
-    with io.open(os.path.join(data_dir, 'alllinks.tsv'), 'w',
-                 encoding='utf-8') as outfile:
-        for fidx, file_name in enumerate(sorted(file_names)):
-            print('\r', fidx+1, '/', len(file_names), file_name, end='')
-            fpath = os.path.join(data_dir, 'html', 'alllinks', file_name)
-            pid2links = read_pickle(fpath)
-
-            for pid, links in pid2links.items():
-                outfile.write(unicode(pid) + u'\t' + u';'.join(links) + '\n')
-
-
-def cleanup(data_dir):
-    files = [f for f in os.listdir(data_dir) if f.endswith('.gt')]
-    for f in files:
-        os.remove(os.path.join(data_dir, f))
-
-
-def get_id2title_no_redirect(data_dir):
-    print('get_id2title_no_redirect...')
-    file_names = [
-        f
-        for f in os.listdir(os.path.join(data_dir, 'html'))
-        if f.endswith('.obj')
-    ]
-    id2title = {}
-    for fidx, file_name in enumerate(sorted(file_names)):
-        print('\r', fidx+1, '/', len(file_names), file_name, end='')
-        df = pd.read_pickle(os.path.join(data_dir, 'html', file_name))
-        for ridx, row in df[pd.isnull(df['redirects_to'])][['pid', 'title']].iterrows():
-            id2title[row['pid']] = row['title']
-    print()
-    fpath = os.path.join('id2title', data_dir.split(os.path.sep)[1] + '.obj')
-    write_pickle(fpath, id2title)
 
 
 class Graph(object):
@@ -1325,37 +1219,37 @@ if __name__ == '__main__':
 
     # data = io.open('test.txt', encoding='utf-8').read()
 
-    pid = '1698838'
-    wiki = 'ja'
-
-    import urllib2
-    url = 'https://' + wiki +\
-          '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959' + \
-          '&prop=revisions|categories&continue&pageids=%s&action=query' + \
-          '&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
-    print(url % pid)
-    response = urllib2.urlopen(url % pid)
-    data = response.read().decode('utf-8')
-    with io.open('test2.txt', 'w', encoding='utf-8') as outfile:
-        outfile.write(data)
-
-    import json
-    with io.open('test2.txt', encoding='utf-8', errors='ignore') as infile:
-        data_original = json.load(infile)
-    data = data_original['query']['pages'][pid]['revisions'][0]['*']
-
-    parser = WikipediaHTMLAllParser()
-    parser.feed(data)
-
-    ib_links, lead_links, first_p_len = parser.get_data()
-    # fix double % encoding
-    ib_links = [l.replace('%25', '%') for l in ib_links]
-    lead_links = [l.replace('%25', '%') for l in lead_links]
-
-    print('INFOBOX:')
-    for l in ib_links[:10]:
-        print('   ', l)
-    print('\nLEAD:')
-    for l in lead_links[:10]:
-        print('   ', l)
-    pdb.set_trace()
+    # pid = '1698838'
+    # wiki = 'ja'
+    #
+    # import urllib2
+    # url = 'https://' + wiki +\
+    #       '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959' + \
+    #       '&prop=revisions|categories&continue&pageids=%s&action=query' + \
+    #       '&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
+    # print(url % pid)
+    # response = urllib2.urlopen(url % pid)
+    # data = response.read().decode('utf-8')
+    # with io.open('test2.txt', 'w', encoding='utf-8') as outfile:
+    #     outfile.write(data)
+    #
+    # import json
+    # with io.open('test2.txt', encoding='utf-8', errors='ignore') as infile:
+    #     data_original = json.load(infile)
+    # data = data_original['query']['pages'][pid]['revisions'][0]['*']
+    #
+    # parser = WikipediaHTMLAllParser()
+    # parser.feed(data)
+    #
+    # ib_links, lead_links, first_p_len = parser.get_data()
+    # # fix double % encoding
+    # ib_links = [l.replace('%25', '%') for l in ib_links]
+    # lead_links = [l.replace('%25', '%') for l in lead_links]
+    #
+    # print('INFOBOX:')
+    # for l in ib_links[:10]:
+    #     print('   ', l)
+    # print('\nLEAD:')
+    # for l in lead_links[:10]:
+    #     print('   ', l)
+    # pdb.set_trace()
