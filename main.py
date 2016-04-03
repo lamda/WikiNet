@@ -164,7 +164,12 @@ class Wikipedia(object):
 
         parsed_first_links, parsed_first_p_links, parsed_lead_links = [], [], []
         parsed_ib_links, parsed_all_links = [], []
+        dbg_pid_found = False
         for idx, row in df.iterrows():
+            if row['pid'] == 8450:
+                dbg_pid_found = True
+            if not dbg_pid_found:
+                continue
             if pd.isnull(row['redirects_to']):
                 dbg = False
                 dbg_pid = 0

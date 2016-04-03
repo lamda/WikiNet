@@ -15,7 +15,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.links = []
         self.parentheses_counter = 0
         self.first_link_found = False
-        self.first_p_found = False
+        self.first_p_or_section_found = False
         self.first_p_ended = False
         self.lead_ended = False
         self.first_p_len = 0
@@ -25,6 +25,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.table_counter_any = 0
         self.tracking_table = 0
         self.debug = debug
+        self.debug_links = False
         self.debug_found = False
 
         self.japars_open = [
@@ -136,7 +137,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.links = []
         self.parentheses_counter = 0
         self.first_link_found = False
-        self.first_p_found = False
+        self.first_p_or_section_found = False
         self.first_p_len = 0
         self.first_p_ended = False
         self.lead_ended = False
@@ -152,6 +153,8 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         self.reset()
         if debug:
             self.debug = True
+            if debug == 'links':
+                self.debug_links = True
         # data = data.split('<h2><span class="mw-headline"')[0]
 
         repl_strings = [
@@ -168,19 +171,23 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                     self.lead_ended = True
                     if self.debug:
                         print('++++ LEAD ENDED ++++')
+                if not self.first_p_or_section_found:
+                    self.first_p_or_section_found = True
+                    if self.debug:
+                        print('++++ FIRST P OR SECTION FOUND ++++ (mw-headline)')
             HTMLParser.HTMLParser.feed(self, line)
         if debug:
             self.debug = False
+            if debug == 'links':
+                self.debug_links = False
 
     def handle_starttag(self, tag, attrs):
         if tag == 'p':
-            if self.debug:
-                pdb.set_trace()
             if self.div_counter_any < 1 and self.table_counter_any < 1 and \
-                    not self.first_p_found:
+                    not self.first_p_or_section_found:
                 if self.debug:
-                    print('++++ FIRST P FOUND ++++')
-                self.first_p_found = True
+                    print('++++ FIRST P OR SECTION FOUND ++++ (tag == p)')
+                self.first_p_or_section_found = True
             self.parentheses_counter = 0
 
         elif tag == 'a':
@@ -188,35 +195,36 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             if href and href[0].startswith('/wiki/'):
                 self.links.append(href[0].split('/', 2)[-1].split('#')[0])
                 if self.debug:
-                    # print('   ', self.links[-1], end='')
+                    if self.debug_links:
+                        print('   ', self.links[-1], end='')
                     if not self.tracking_table and self.links[-1] == 'Chemical_element':
                         print('\n', self.lead_ended)
                         print(self.div_counter_any, self.table_counter_any)
-                        print(self.first_p_found)
+                        print(self.first_p_or_section_found)
                         pdb.set_trace()
                 if (not self.lead_ended and
                         self.div_counter_any == 0 and
                         self.table_counter_any == 0 and
-                        self.first_p_found):
+                        self.first_p_or_section_found):
                     self.lead_links.append(self.links[-1])
-                    # if self.debug:
-                    #     print(' (LEAD)', end='')
+                    if self.debug_links:
+                        print(' (LEAD)', end='')
                 if (not self.first_link_found and
-                        self.first_p_found and
+                        self.first_p_or_section_found and
                         self.div_counter_any == 0 and
                         self.table_counter_any == 0 and
                         self.parentheses_counter == 0):
                     self.first_link = self.links[-1]
                     self.first_link_found = True
-                    # if self.debug:
-                    #     print('(FIRST LINK)', end='')
+                    if self.debug_links:
+                        print('(FIRST LINK)', end='')
 
                 if self.tracking_table:
                     self.infobox_links.append(self.links[-1])
-                #     if self.debug:
-                #         print('(INFOBOX)', end='')
-                # if self.debug:
-                #     print()
+                    if self.debug_links:
+                        print('(INFOBOX)', end='')
+                if self.debug_links:
+                    print()
 
         elif tag == 'div':
             self.div_counter_any += 1
@@ -262,7 +270,7 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 if self.debug and self.tracking_table == 0:
                     print('---- stop tracking table ----')
 
-        elif tag == 'p' and not self.first_p_ended and self.first_p_found:
+        elif tag == 'p' and not self.first_p_ended and self.first_p_or_section_found:
             self.first_p_ended = True
             self.first_p_len = len(self.lead_links)
 
