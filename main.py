@@ -9,7 +9,6 @@ try:
 except ImportError:
     pass
 import json
-import HTMLParser
 import io
 import numpy as np
 import operator
@@ -21,6 +20,7 @@ import re
 import urllib
 
 from crawler import Crawler
+from parsers import WikipediaHTMLParser, WikipediaDivTableParser
 from tools import debug_iter, read_pickle, write_pickle, url_escape
 
 
@@ -38,7 +38,7 @@ class Wikipedia(object):
     def __init__(self, label, dump_date):
         self.wiki_code = label
         self.wiki_name = label + 'wiki'
-        self.data_dir = os.path.join('data', label)
+        self.data_dir = os.path.join('data', self.wiki_name)
         self.dump_date = dump_date
         self._id2title, self._title2id, self._title2redirect = None, None, None
         self._parsers = {}
@@ -70,10 +70,8 @@ class Wikipedia(object):
         try:
             return self._parsers[link_type]
         except KeyError:
-            if link_type == 'lead':
-                parser = WikipediaHTMLLeadParser(self.wiki_name)
-            elif link_type == 'all':
-                parser = WikipediaHTMLAllParser()
+            if link_type == 'all':
+                parser = WikipediaHTMLParser(self.wiki_name)
             elif link_type == 'divs_tables':
                 parser = WikipediaDivTableParser()
             else:
@@ -135,9 +133,10 @@ class Wikipedia(object):
     def get_links(self, link_type, start=None, stop=None):
         print('getting links for type', link_type)
 
+        html_dir = os.path.join(self.data_dir, 'html')
         file_names = [
             f
-            for f in os.listdir(os.path.join(self.data_dir, 'html'))
+            for f in os.listdir(html_dir)
             if f.endswith('.obj')
         ][start:stop]
 
@@ -147,67 +146,93 @@ class Wikipedia(object):
 
         for fidx, file_name in enumerate(file_names):
             print('\r', fidx+1, '/', len(file_names), end='')
-            if link_type == 'all_lead':
-                self.get_link_chunk_lead(file_name)
+            fpath = os.path.join(html_dir, file_name)
+            if link_type == 'all':
+                self.get_link_chunk_lead(fpath)
             elif link_type == 'divs_tables':
-                self.get_link_chunk_divs_tables(file_name)
+                self.get_link_chunk_divs_tables(fpath)
         print()
 
-        if link_type == 'all_lead':
+        if link_type == 'all':
             self.combine_link_chunks()
         elif link_type == 'divs_tables':
             self.combine_divs_tables_chunks()
 
     def get_link_chunk_lead(self, file_path):
-        parser_lead = self.get_parser('lead')
-        parser_all = self.get_parser('all')
+        parser = self.get_parser('all')
         df = pd.read_pickle(file_path)
 
-        parsed_first_links, parsed_ib_links = [], []
-        parsed_lead_links, first_p_lens = [], []
-        link_list = []
+        parsed_first_links, parsed_first_p_links, parsed_lead_links = [], [], []
+        parsed_ib_links, parsed_all_links = [], []
         for idx, row in df.iterrows():
             if pd.isnull(row['redirects_to']):
-                parser_lead.feed(row['content'])
-                first_link, ib_links, lead_links, first_p_len =\
-                    parser_lead.get_data()
+                dbg = False
+                dbg_pid = 0
+                if row['pid'] == dbg_pid:
+                    dbg = True
+                parser.feed(row['content'], debug=dbg)
+                first_link, first_p_links, lead_links, ib_links,\
+                    all_links = parser.get_data()
+
                 # fix double % encoding
-                first_link = first_link.replace('%25', '%')
-                ib_links = [l.replace('%25', '%') for l in ib_links]
+                first_link = [l.replace('%25', '%') for l in first_link]
+                first_p_links = [l.replace('%25', '%') for l in first_p_links]
                 lead_links = [l.replace('%25', '%') for l in lead_links]
+                ib_links = [l.replace('%25', '%') for l in ib_links]
+                all_links = [l.replace('%25', '%') for l in all_links]
 
-                # print(first_link)
-                # print('.........')
-                # for l in ib_links[:10]:
-                #     print('   ', l)
-                # print('.........')
-                # for l in lead_links[:10]:
-                #     print('   ', l)
-                # pdb.set_trace()
-                first_li = self.resolve_redirects([first_link])[0]
-                ib_li = self.resolve_redirects(ib_links)
-                lead_li = self.resolve_redirects(lead_links)
+                if not first_link or not lead_links:
+                    print('\nhttp://' + self.wiki_name +
+                          '.wikipedia.org?curid=%d' % row['pid'], row['title'])
+                    print('----FIRST LINK:', first_link)
+                    print('----IB LINKS:')
+                    for l in ib_links[:10]:
+                        print('   ', l)
+                    print('----LEAD LINKS:')
+                    for l in lead_links[:10]:
+                        print('   ', l)
+                    pdb.set_trace()
 
-                parsed_first_links.append(unicode(first_li))
-                parsed_ib_links.append([unicode(l) for l in ib_li])
-                parsed_lead_links.append([unicode(l) for l in lead_li])
-                first_p_lens.append(first_p_len)
-                # ---
-                parser_all.feed(row['content'])
-                links = parser_all.get_data()
-                link_list.append(map(unicode, self.resolve_redirects(links)))
+                # if row['pid'] == dbg_pid:
+                #     print('Debug ID')
+                #     print('\nhttp://' + self.wiki_name +
+                #           '.wikipedia.org?curid=%d' % row['pid'])
+                #     print('----FIRST LINK:', first_link[0])
+                #     print('----IB LINKS:')
+                #     for l in ib_links[:10]:
+                #         print('   ', l)
+                #     print('----LEAD LINKS:')
+                #     for l in lead_links[:10]:
+                #         print('   ', l)
+                #     pdb.set_trace()
+
+                first_link = self.resolve_redirects(first_link)
+                first_p_links = self.resolve_redirects(first_p_links)
+                lead_links = self.resolve_redirects(lead_links)
+                ib_links = self.resolve_redirects(ib_links)
+                all_links = self.resolve_redirects(all_links)
+
+                if first_link:
+                    parsed_first_links.append(first_link)
+                else:
+                    parsed_first_p_links.append(np.nan)
+                parsed_first_p_links.append(first_p_links)
+                parsed_lead_links.append(lead_links)
+                parsed_ib_links.append(ib_links)
+                parsed_all_links.append(all_links)
             else:
-                parsed_ib_links.append([])
+                parsed_first_links.append(np.nan)
+                parsed_first_p_links.append([])
                 parsed_lead_links.append([])
-                first_p_lens.append(0)
-                # ---
-                link_list.append([])
+                parsed_ib_links.append([])
+                parsed_all_links.append([])
 
         df['first_link'] = parsed_first_links
-        df['ib_links'] = parsed_ib_links
+        df['first_lead_links'] = parsed_first_p_links
         df['lead_links'] = parsed_lead_links
-        df['first_p_len'] = first_p_lens
-        df['all_links'] = link_list
+        df['ib_links'] = parsed_ib_links
+        df['all_links'] = parsed_all_links
+        pdb.set_trace()
         pd.to_pickle(df, file_path)
 
     def get_link_chunk_divs_tables(self, file_name):
@@ -307,7 +332,7 @@ class Wikipedia(object):
                     # unfortunately is linked in the old revision retrieved via API
                     # print('       ', link, 'not found ----')
                     pass
-        return result
+        return [unicode(l) for l in result]
 
     def cleanup(self):
         files = [f for f in os.listdir(self.data_dir) if f.endswith('.gt')]
@@ -315,342 +340,27 @@ class Wikipedia(object):
             os.remove(os.path.join(self.data_dir, f))
 
 
-class WikipediaHTMLLeadParser(HTMLParser.HTMLParser):
-    def __init__(self, label, debug=False):
-        HTMLParser.HTMLParser.__init__(self)
-        self.label = label
-        self.first_link = None
-        self.lead_links = []
-        self.infobox_links = []
-        self.tracking_link = False
-        self.parentheses_counter = 0
-        self.first_link_found = False
-        self.first_p_found = False
-        self.first_p_ended = False
-        self.first_p_len = 0
-        self.tracking_div = 0
-        self.div_counter_any = 0
-        self.div_counter = 0
-        self.table_counter = 0
-        self.table_counter_any = 0
-        self.tracking_table = 0
-        self.debug = debug
-        self.debug_found = False
-
-        self.japars_open = [
-            u'\uff08',
-            u'\u0028',
-            u'\ufe59',
-            u'\u2768',
-            u'\u276a',
-            u'\u207d',
-            u'\u208d',
-            u'\u005b',
-            u'\uff3b',
-            u'\u007b',
-            u'\uff5b',
-            u'\ufe5b',
-            u'\u2774',
-
-            u'\u2985',
-            u'\uFF5F',
-            u'\u300C',
-            u'\uFF62',
-            u'\u300E',
-            u'\u301A',
-            u'\u27E6',
-        ]
-
-        self.japars_closed = [
-            u'\uff09',
-            u'\u0029',
-            u'\ufe5a',
-            u'\u2769',
-            u'\u276b',
-            u'\u207e',
-            u'\u208e',
-            u'\u005d',
-            u'\uff3d',
-            u'\u007d',
-            u'\uff5d',
-            u'\ufe5c',
-            u'\u2775',
-
-            u'\u2986',
-            u'\uFF60',
-            u'\u300D',
-            u'\uFF63',
-            u'\u300F',
-            u'\u301B',
-            u'\u27E7',
-        ]
-
-        if label == 'enwiki':
-            self.infobox_classes = [
-                'infobox',
-            ]
-
-        elif label == 'dewiki':
-            self.infobox_classes = [
-                'infobox',
-                'toptextcells',
-                'float-right',
-            ]
-
-        elif label == 'frwiki':
-            self.infobox_classes = [
-                'infobox',
-                'infobox_v2',
-                'taxobox_classification',
-            ]
-
-        elif label == 'eswiki':
-            self.infobox_classes = [
-                'infobox',
-            ]
-
-        elif label == 'itwiki':
-            self.infobox_classes = [
-                'sinottico',
-                'sinottico_annidata',
-            ]
-
-        elif label == 'jawiki':
-            self.infobox_classes = [
-                'infobox',
-            ]
-
-        elif label == 'nlwiki':
-            self.infobox_classes = [
-                'infobox',
-            ]
-
-        elif label == 'ruwiki':
-            self.infobox_classes = [
-                'infobox',
-            ]
-
-        elif label == 'simplewiki':
-            self.infobox_classes = [
-                'infobox',
-            ]
-
-        else:
-            print('WikipediaParser: label (%s) not supported' % label)
-            pdb.set_trace()
-
-    def reset(self):
-        self.first_link = None
-        self.lead_links = []
-        self.infobox_links = []
-        self.tracking_link = False
-        self.parentheses_counter = 0
-        self.first_link_found = False
-        self.first_p_found = False
-        self.first_p_len = 0
-        self.first_p_ended = False
-        self.tracking_div = 0
-        self.tracking_table = 0
-        self.div_counter_any = 0
-        self.div_counter = 0
-        self.table_counter = 0
-        self.table_counter_any = 0
-        self.debug_found = False
-        HTMLParser.HTMLParser.reset(self)
-
-    def feed(self, data):
-        self.reset()
-        data = data.split('<h2><span class="mw-headline"')[0]
-
-        repl_strings = [
-            '<p>\n</p>',
-            '<p> </p>',
-            '<p></p>',
-        ]
-
-        for repl_string in repl_strings:
-            data = data.replace(repl_string, '')
-        for line in data.splitlines():
-            HTMLParser.HTMLParser.feed(self, line)
-
-    def handle_starttag(self, tag, attrs):
-        if tag == 'p':
-            if self.div_counter_any < 1 and self.table_counter_any < 1 and \
-                    not self.first_p_found:
-                if self.debug:
-                    print('++++ FIRST P FOUND ++++')
-                self.first_p_found = True
-            self.parentheses_counter = 0
-
-        elif tag == 'a' and self.first_p_found and self.div_counter_any == 0 and\
-                self.table_counter_any == 0:
-            href = [a[1] for a in attrs if a[0] == 'href']
-            if href and href[0].startswith('/wiki/'):
-                self.lead_links.append(
-                    href[0].split('/', 2)[-1].split('#')[0]
-                )
-                self.tracking_link = True
-                if not self.first_link_found and self.parentheses_counter == 0:
-                    self.first_link = self.lead_links[-1]
-                    self.first_link_found = True
-
-        elif tag == 'a' and self.tracking_table:
-            href = [a[1] for a in attrs if a[0] == 'href']
-            if href and href[0].startswith('/wiki/'):
-                self.infobox_links.append(
-                    href[0].split('/', 2)[-1].split('#')[0]
-                )
-
-        elif tag == 'div':
-            self.div_counter_any += 1
-
-        elif tag == 'table' or tag == 'dl':
-            if self.debug:
-                print('table OPEN', tag, attrs)
-            self.table_counter_any += 1
-            aclass = [a[1] for a in attrs if a[0] == 'class' or a[0] == 'id']
-            if aclass:
-                acl = aclass[0].lower()
-                if any(s in acl for s in self.infobox_classes):
-                    self.tracking_table += 1
-                    if self.debug:
-                        print('---- start tracking ---')
-            if self.tracking_table:
-                self.table_counter += 1
-
-    def handle_endtag(self, tag):
-        if tag == 'a' and self.tracking_link:
-            self.tracking_link = False
-
-        elif tag == 'div':
-            self.div_counter_any -= 1
-
-        elif tag == 'table' or tag == 'dl':
-            if self.debug:
-                print('table CLOSE')
-            self.table_counter_any -= 1
-            if self.tracking_table > 0:
-                self.table_counter -= 1
-                if self.table_counter == 0:
-                    self.tracking_table = min(0, self.tracking_table-1)
-
-        elif tag == 'p' and not self.first_p_ended and self.first_p_found:
-            self.first_p_ended = True
-            self.first_p_len = len(self.lead_links)
-
-    def handle_data(self, d):
-        if self.tracking_div or self.tracking_table:
-            return
-        par_diff = d.count('(') + d.count('[') + d.count('{') -\
-                   d.count(')') - d.count(']') - d.count('}')
-        if self.label == 'jawiki':
-            par_plus = sum(d.count(po) for po in self.japars_open)
-            par_minus = sum(d.count(pc) for pc in self.japars_closed)
-            par_diff = par_plus - par_minus
-        if self.debug and par_diff != 0:
-            print ('----> ', par_diff, d)
-        self.parentheses_counter += par_diff
-
-    def get_data(self):
-        return self.first_link, self.infobox_links,\
-               self.lead_links, self.first_p_len
-
-
-class WikipediaHTMLAllParser(HTMLParser.HTMLParser):
-    def __init__(self):
-        HTMLParser.HTMLParser.__init__(self)
-        self.links = []
-
-    def reset(self):
-        self.links = []
-        HTMLParser.HTMLParser.reset(self)
-
-    def feed(self, data):
-        self.reset()
-
-        for line in data.splitlines():
-            HTMLParser.HTMLParser.feed(self, line)
-
-    def handle_starttag(self, tag, attrs):
-        if tag == 'a':
-            href = [a[1] for a in attrs if a[0] == 'href']
-            if href and href[0].startswith('/wiki/'):
-                self.links.append(
-                    href[0].split('/', 2)[-1].split('#')[0]
-                )
-
-    def get_data(self):
-        return self.links
-
-
-class WikipediaDivTableParser(HTMLParser.HTMLParser):
-    def __init__(self):
-        HTMLParser.HTMLParser.__init__(self)
-        self.divclass2id = {}
-        self.tableclass2id = {}
-        self.pid = None
-
-    def reset(self):
-        self.divclass2id = {}
-        self.tableclass2id = {}
-        self.pid = None
-
-    def feed(self, data, pid):
-        HTMLParser.HTMLParser.reset(self)
-        self.reset()
-        self.pid = pid
-        end_strings = [
-            '<h2><span class="mw-headline"',  # split at first section heading
-        ]
-        for end_string in end_strings:
-            data = data.split(end_string)[0]
-
-        for line in data.splitlines():
-            HTMLParser.HTMLParser.feed(self, line)
-
-    def handle_starttag(self, tag, attrs):
-        if tag == 'table':
-            aclass = [a[1] for a in attrs if a[0] == 'class']
-            for aa in aclass:
-                # for a in aa.split(' '):
-                #     self.class2id[a] = self.pid
-                self.tableclass2id[frozenset(aa.split(' '))] = self.pid
-
-        elif tag == 'div':
-            aclass = [a[1] for a in attrs if a[0] == 'class']
-            for aa in aclass:
-                # for a in aa.split(' '):
-                #     self.class2id[a] = self.pid
-                self.divclass2id[frozenset(aa.split(' '))] = self.pid
-
-    def get_data(self):
-        return self.divclass2id, self.tableclass2id
-
-
 class Graph(object):
-    def __init__(self, data_dir, fname='', use_sample=False,
-                 refresh=False, suffix='', N=None, verbose=False):
+    def __init__(self, wiki_name, refresh=False, N=None, verbose=False):
         self.verbose = verbose
-        if self.verbose:
-            print(fname, N, 'use_sample =', use_sample, 'refresh =', refresh)
-        self.data_dir = data_dir
-        self.label = data_dir.split(os.path.sep)[-1]
+        if self.verbose: print(N, 'refresh =', refresh)
+        self.data_dir = os.path.join('data', wiki_name)
+        self.label = wiki_name
         self.stats_folder = os.path.join(self.data_dir, 'stats')
         if not os.path.exists(self.stats_folder):
             os.makedirs(self.stats_folder)
-        self.use_sample = use_sample
-        self.graph_name = fname if not use_sample else fname + '_sample'
+        self.graph_name = 'links'
         self.N = N
         self.graph_file_path = os.path.join(self.data_dir,
                                             ('all' if self.N == 'all' else '') +
                                             self.graph_name + '.tsv')
         self.gt_file_path = os.path.join(
             self.data_dir,
-            self.graph_name + '_' + str(self.N) + suffix + '.gt'
+            self.graph_name + '_' + str(self.N) + '.gt'
         )
         self.stats_file_path = os.path.join(
             self.stats_folder,
-            self.graph_name + '_' + str(self.N) + suffix + '.obj'
+            self.graph_name + '_' + str(self.N) + '.obj'
         )
         self.graph = gt.Graph(directed=True)
         self.names = self.graph.new_vertex_property('int32_t')

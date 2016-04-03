@@ -2,43 +2,27 @@
 
 from __future__ import division, print_function, unicode_literals
 
-import os
-
-from main import *
-
-from crawler import Crawler
-
-DATA_DIR = os.path.join('data', 'frwiki')
-WIKI_NAME = 'frwiki'
-WIKI_CODE = 'fr'
-DUMP_DATE = '20160203'
+from main import Wikipedia
 
 if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
+    wp = Wikipedia('fr', '20160203')
 
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
+    wp.get_id_dict()
 
-    # get_resolved_redirects(DATA_DIR)
+    wp.crawl()
 
-    # get_id2title_no_redirect(DATA_DIR)
+    wp.crawl(recrawl_damaged=True)
 
-    # get_divtable_classes_chunks(DATA_DIR)
+    wp.get_resolved_redirects()
 
-    # combine_divtable_chunks(DATA_DIR)
+    wp.get_links('all_lead')
 
-    # get_top_n_links_chunks(DATA_DIR)
-    #
-    # combine_chunks(DATA_DIR)
+    wp.get_links('divs_tables')
 
-    # get_all_links_chunks(DATA_DIR)
-    #
-    # combine_all_chunks(DATA_DIR)
-
-    # cleanup(DATA_DIR)
+    wp.cleanup()
 
     for n_val in [
         1,

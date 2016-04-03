@@ -176,9 +176,8 @@ class Crawler(object):
         return pids
 
     def crawl_missing(self):
-        print('0')
         pids = self.get_missing_pids()
-        print('1')
+        print('crawling %d missing pids' % len(pids))
         finished = self.parallel(pids, self.no_crawlers, self.download)
         finished.addErrback(self.handle_error)
         finished.addCallback(self.compress_files, start=None, stop=None)
