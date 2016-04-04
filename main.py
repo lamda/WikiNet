@@ -148,9 +148,13 @@ class Wikipedia(object):
             print('\r', fidx+1, '/', len(file_names), end='')
             fpath = os.path.join(html_dir, file_name)
             if link_type == 'all':
-                self.get_link_chunk_lead(fpath)
+                self.get_link_chunk_all(fpath)
             elif link_type == 'divs_tables':
                 self.get_link_chunk_divs_tables(fpath)
+            ## df = pd.read_pickle(fpath)
+            ## df.rename(columns={'first_lead_links': 'first_p_links'}, inplace=True)
+            ## pd.to_pickle(df, fpath)
+
         print()
 
         if link_type == 'all':
@@ -158,7 +162,7 @@ class Wikipedia(object):
         elif link_type == 'divs_tables':
             self.combine_divs_tables_chunks()
 
-    def get_link_chunk_lead(self, file_path):
+    def get_link_chunk_all(self, file_path):
         parser = self.get_parser('all')
         df = pd.read_pickle(file_path)
 
@@ -166,15 +170,15 @@ class Wikipedia(object):
         parsed_ib_links, parsed_all_links = [], []
         dbg_pid_found = False
         for idx, row in df.iterrows():
-            if row['pid'] == 8450:
-                dbg_pid_found = True
-            if not dbg_pid_found:
-                continue
+            # if row['pid'] == 955:
+            #     dbg_pid_found = True
+            # if not dbg_pid_found:
+            #     continue
             if pd.isnull(row['redirects_to']):
                 dbg = False
-                dbg_pid = 0
-                if row['pid'] == dbg_pid:
-                    dbg = True
+                # dbg_pid = 0
+                # if row['pid'] == dbg_pid:
+                #     dbg = True
                 parser.feed(row['content'], debug=dbg)
                 first_link, first_p_links, lead_links, ib_links,\
                     all_links = parser.get_data()
@@ -186,30 +190,19 @@ class Wikipedia(object):
                 ib_links = [l.replace('%25', '%') for l in ib_links]
                 all_links = [l.replace('%25', '%') for l in all_links]
 
-                if not first_link or not lead_links:
-                    print('\nhttp://' + self.wiki_name +
-                          '.wikipedia.org?curid=%d' % row['pid'], row['title'])
-                    print('----FIRST LINK:', first_link)
-                    print('----IB LINKS:')
-                    for l in ib_links[:10]:
-                        print('   ', l)
-                    print('----LEAD LINKS:')
-                    for l in lead_links[:10]:
-                        print('   ', l)
-                    pdb.set_trace()
-
                 # if row['pid'] == dbg_pid:
-                #     print('Debug ID')
-                #     print('\nhttp://' + self.wiki_name +
-                #           '.wikipedia.org?curid=%d' % row['pid'])
-                #     print('----FIRST LINK:', first_link[0])
-                #     print('----IB LINKS:')
-                #     for l in ib_links[:10]:
-                #         print('   ', l)
-                #     print('----LEAD LINKS:')
-                #     for l in lead_links[:10]:
-                #         print('   ', l)
-                #     pdb.set_trace()
+                # print('Debug ID')
+                # print('\nhttp://' + self.wiki_name +
+                #       '.wikipedia.org?curid=%d' % row['pid'], row['title'])
+                # print('----FIRST LINK:', first_link)
+                # print('----IB LINKS:')
+                # for l in ib_links[:10]:
+                #     print('   ', l)
+                # print('----LEAD LINKS:')
+                # for l in lead_links[:10]:
+                #     print('   ', l)
+                # pdb.set_trace()
+                # parser.feed(row['content'], debug=True)
 
                 first_link = self.resolve_redirects(first_link)
                 first_p_links = self.resolve_redirects(first_p_links)
@@ -220,29 +213,27 @@ class Wikipedia(object):
                 if first_link:
                     parsed_first_links.append(first_link)
                 else:
-                    parsed_first_p_links.append(np.nan)
+                    parsed_first_links.append([np.nan])
                 parsed_first_p_links.append(first_p_links)
                 parsed_lead_links.append(lead_links)
                 parsed_ib_links.append(ib_links)
                 parsed_all_links.append(all_links)
             else:
-                parsed_first_links.append(np.nan)
+                parsed_first_links.append([np.nan])
                 parsed_first_p_links.append([])
                 parsed_lead_links.append([])
                 parsed_ib_links.append([])
                 parsed_all_links.append([])
 
         df['first_link'] = parsed_first_links
-        df['first_lead_links'] = parsed_first_p_links
+        df['first_p_links'] = parsed_first_p_links
         df['lead_links'] = parsed_lead_links
         df['ib_links'] = parsed_ib_links
         df['all_links'] = parsed_all_links
-        pdb.set_trace()
         pd.to_pickle(df, file_path)
 
-    def get_link_chunk_divs_tables(self, file_name):
-        parser = self.get_parser('dics_tables')
-        file_path = os.path.join(self.data_dir, 'html', file_name)
+    def get_link_chunk_divs_tables(self, file_path):
+        parser = self.get_parser('divs_tables')
         df = pd.read_pickle(file_path)
         divclass2id = collections.defaultdict(list)
         tableclass2id = collections.defaultdict(list)
@@ -258,6 +249,7 @@ class Wikipedia(object):
                     tableclass2id[k].append(v)
 
         file_dir = os.path.join(self.data_dir, 'html', 'divs_tables')
+        file_name = file_path.split(os.path.sep)[-1]
         write_pickle(os.path.join(file_dir, file_name),
                      [divclass2id, tableclass2id])
 
@@ -284,10 +276,10 @@ class Wikipedia(object):
                         )
                         outfile_lead.write(
                             unicode(row['pid']) + '\t' +
-                            row['first_link'] + '\t' +
-                            ';'.join(row['ib_links']) + '\t' +
+                            unicode(row['first_link'][0]) + '\t' +
+                            ';'.join(row['first_p_links']) + '\t' +
                             ';'.join(row['lead_links']) + '\t' +
-                            unicode(row['first_p_len']) + '\n'
+                            ';'.join(row['ib_links']) + '\n'
                         )
             print()
 
@@ -344,21 +336,28 @@ class Wikipedia(object):
         for f in files:
             os.remove(os.path.join(self.data_dir, f))
 
+    def to_file(self, data, file_name):
+        with io.open(file_name, 'w', encoding='utf-8') as outfile:
+            outfile.write(data)
+
 
 class Graph(object):
     def __init__(self, wiki_name, refresh=False, N=None, verbose=False):
         self.verbose = verbose
-        if self.verbose: print(N, 'refresh =', refresh)
-        self.data_dir = os.path.join('data', wiki_name)
-        self.label = wiki_name
+        if self.verbose:
+            print(N, 'refresh =', refresh)
+        self.wiki_code = wiki_name
+        self.wiki_name = wiki_name + 'wiki'
+        self.N = N
+        self.data_dir = os.path.join('data', self.wiki_name)
         self.stats_folder = os.path.join(self.data_dir, 'stats')
         if not os.path.exists(self.stats_folder):
             os.makedirs(self.stats_folder)
         self.graph_name = 'links'
-        self.N = N
-        self.graph_file_path = os.path.join(self.data_dir,
-                                            ('all' if self.N == 'all' else '') +
-                                            self.graph_name + '.tsv')
+        self.graph_file_path = os.path.join(
+            self.data_dir,
+            ('all' if self.N == 'all' else '') + self.graph_name + '.tsv'
+        )
         self.gt_file_path = os.path.join(
             self.data_dir,
             self.graph_name + '_' + str(self.N) + '.gt'
@@ -396,23 +395,26 @@ class Graph(object):
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
                 if self.N == 'all':
-                    node, nbs = line.strip('\n').split('\t')
-                    lead_nbs = None
+                    node, nbs = line.split('\t')
+                    nodes.add(node)
+                    nbs = nbs.strip().split(';')
+                    if nbs != [u'']:
+                        nodes |= set(nbs)
                 else:
-                    node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
-                nodes.add(node)
-                if self.N == 'infobox' and ib_nbs:
-                    nodes |= set(ib_nbs.split(';'))
-                elif self.N == 'all' and nbs:
-                    nodes |= set(nbs.split(';'))
-                elif lead_nbs:
-                    lead_nbs = lead_nbs.split(';')
-                    if self.N == 1:
-                        nodes.add(lead_nbs[0])
-                    elif self.N == 'first_p':
-                        nodes |= set(lead_nbs[:int(first_p_len)])
-                    else:
-                        nodes |= set(lead_nbs)
+                    data = line.split('\t')
+                    node, first_link, first_p_links, lead_links, ib_links = data
+                    node, first_link = node.strip(), first_link.strip()
+                    first_p_links = first_p_links.strip()
+                    lead_links, ib_links = lead_links.strip(), ib_links.strip()
+                    nodes.add(node)
+                    if self.N == 1 and first_link != 'nan':
+                        nodes.add(first_link)
+                    elif self.N == 'first_p' and first_p_links:
+                        nodes |= set(first_p_links.split(';'))
+                    elif self.N == 'lead' and lead_links:
+                        nodes |= set(lead_links.split(';'))
+                    elif self.N == 'infobox' and ib_links:
+                        nodes |= set(ib_links.split(';'))
 
         print('\nadding nodes to graph...')
         for node in debug_iter(nodes, len(nodes)):
@@ -425,23 +427,25 @@ class Graph(object):
         with io.open(self.graph_file_path, encoding='utf-8') as infile:
             for line in debug_iter(infile):
                 if self.N == 'all':
-                    node, all_nbs = line.strip('\n').split('\t')
-                    lead_nbs = None
+                    node, nbs = line.split('\t')
+                    nbs = nbs.strip().split(';')
+                    if nbs == [u'']:
+                        nbs = []
                 else:
-                    node, ib_nbs, lead_nbs, first_p_len = line.strip().split('\t')
-                nbs = []
-                if self.N == 'infobox' and ib_nbs:
-                    nbs = set(ib_nbs.split(';'))
-                elif self.N == 'all' and all_nbs:
-                    nbs = set(all_nbs.split(';'))
-                elif lead_nbs:
-                    lead_nbs = lead_nbs.split(';')
-                    if self.N == 1:
-                        nbs = lead_nbs[:1]
-                    elif self.N == 'first_p':
-                        nbs = lead_nbs[:int(first_p_len)]
-                    else:
-                        nbs = lead_nbs
+                    data = line.split('\t')
+                    node, first_link, first_p_links, lead_links, ib_links = data
+                    node, first_link = node.strip(), first_link.strip()
+                    first_p_links = first_p_links.strip()
+                    lead_links, ib_links = lead_links.strip(), ib_links.strip()
+                    nbs = []
+                    if self.N == 1 and first_link != 'nan':
+                        nbs = [first_link]
+                    elif self.N == 'first_p' and first_p_links:
+                        nbs = first_p_links.split(';')
+                    elif self.N == 'lead' and lead_links:
+                        nbs = lead_links.split(';')
+                    elif self.N == 'infobox' and ib_links:
+                        nbs = ib_links.split(';')
                 if nbs:
                     v = self.graph.vertex_index[self.name2node[node]]
                     edges += [(v, self.graph.vertex_index[self.name2node[n]])
@@ -456,8 +460,8 @@ class Graph(object):
         # assign titles as a vertex property
         vp_title = self.graph.new_vertex_property('string')
         for vertex in debug_iter(self.graph.vertices()):
-            vp_title[self.graph.vertex(vertex)] = id2title[
-                int(self.graph.vp['name'][vertex])]
+            title = id2title[int(self.graph.vp['name'][vertex])]
+            vp_title[self.graph.vertex(vertex)] = title
         self.graph.vp['title'] = vp_title
         self.save()
 
@@ -507,7 +511,6 @@ class Graph(object):
             print(k, v)
 
         if 'comp_stats' in stats:
-            print('found', stats['singles'], 'single components')
             cstats = stats['comp_stats']
             print('top 10 cycles by cycle length')
             for comp_stat in cstats[:10]:
@@ -938,10 +941,7 @@ if __name__ == '__main__':
     # wiki = 'ja'
     #
     # import urllib2
-    # url = 'https://' + wiki +\
-    #       '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959' + \
-    #       '&prop=revisions|categories&continue&pageids=%s&action=query' + \
-    #       '&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
+    # url = 'https://' + wiki + '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
     # print(url % pid)
     # response = urllib2.urlopen(url % pid)
     # data = response.read().decode('utf-8')

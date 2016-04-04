@@ -3,6 +3,7 @@
 from __future__ import division, print_function, unicode_literals
 
 import HTMLParser
+import pdb
 
 
 class WikipediaHTMLParser(HTMLParser.HTMLParser):
@@ -197,11 +198,11 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 if self.debug:
                     if self.debug_links:
                         print('   ', self.links[-1], end='')
-                    if not self.tracking_table and self.links[-1] == 'Chemical_element':
-                        print('\n', self.lead_ended)
-                        print(self.div_counter_any, self.table_counter_any)
-                        print(self.first_p_or_section_found)
-                        pdb.set_trace()
+                    # if not self.tracking_table and self.links[-1] == 'Chemical_element':
+                    #     print('\n', self.lead_ended)
+                    #     print(self.div_counter_any, self.table_counter_any)
+                    #     print(self.first_p_or_section_found)
+                    #     pdb.set_trace()
                 if (not self.lead_ended and
                         self.div_counter_any == 0 and
                         self.table_counter_any == 0 and
