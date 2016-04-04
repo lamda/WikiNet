@@ -345,12 +345,12 @@ class Wikipedia(object):
 
 
 class Graph(object):
-    def __init__(self, wiki_name, refresh=False, N=None, verbose=False):
+    def __init__(self, wiki_code, refresh=False, N=None, verbose=False):
         self.verbose = verbose
         if self.verbose:
             print(N, 'refresh =', refresh)
-        self.wiki_code = wiki_name
-        self.wiki_name = wiki_name + 'wiki'
+        self.wiki_code = wiki_code
+        self.wiki_name = wiki_code + 'wiki'
         self.N = N
         self.data_dir = os.path.join('data', self.wiki_name)
         self.stats_folder = os.path.join(self.data_dir, 'stats')

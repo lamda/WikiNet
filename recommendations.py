@@ -5,7 +5,6 @@ try:
     import graph_tool.all as gt
 except ImportError:
     pass
-import io
 import numpy as np
 import os
 import pdb
@@ -15,9 +14,15 @@ from main import Graph
 from tools import read_pickle, write_pickle, url_unescape
 
 
+def debug(*text):
+    """wrapper for the print function that can be turned on and off"""
+    if True:
+        print(' '.join(str(t) for t in text))
+
+
 def get_top_n(nodes, node2val, topn):
-    topviews =[0 for i in xrange(topn)]
-    topnodes =[0 for i in xrange(topn)]
+    topviews = [0 for i in xrange(topn)]
+    topnodes = [0 for i in xrange(topn)]
     minviews = 0
     minnodes = 0
     for v in nodes:
@@ -28,12 +33,6 @@ def get_top_n(nodes, node2val, topn):
             minnodes = topviews.index(minviews)
     return sorted([(a, b) for a, b in zip(topnodes, topviews)],
                   key=lambda x: x[1], reverse=True)
-
-
-def debug(*text):
-    """wrapper for the print function that can be turned on and off"""
-    if True:
-        print(' '.join(str(t) for t in text))
 
 
 def find_nodes(start_node, to_find, debug=False):
@@ -148,25 +147,25 @@ def test_node2reach2():
 
 
 class Recommender(object):
-    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
-        self.label = label
+    def __init__(self, wiki_code, small_n='first_p', large_n='lead',
+                 n_recs=100):
+        self.wiki_code = wiki_code
+        self.wiki_name = wiki_code + 'wiki'
         self.small_n, self.large_n = small_n, large_n
-
         self.g_small, self.g_large = None, None
         self.load_graphs()
 
         self.n_recs = n_recs
         self.vc_ratios, self.scc_sizes = [], []
         fpath = os.path.join('data', 'pageviews', 'filtered')
-        fname = 'id2views-' + self.label + '.obj'
+        fname = 'id2views-' + self.wiki_code + '.obj'
         self.id2views = read_pickle(os.path.join(fpath, fname))
         self.wid2node_small = {self.g_small.graph.vp['name'][v]: v
                                for v in self.g_small.graph.vertices()}
         self.wid2node_large = {self.g_large.graph.vp['name'][v]: v
                                for v in self.g_large.graph.vertices()}
 
-        self.scc = set()
-        self.inc = set()
+        self.scc, self.inc = set(), set()
         self.graph_reversed = gt.GraphView(self.g_small.graph, reversed=True,
                                            directed=True)
         scc_size, vc_ratio = self.get_stats()
@@ -198,14 +197,10 @@ class Recommender(object):
 
     def load_graphs(self):
         print('loading graphs...')
-        self.g_small = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
-                             fname='links', use_sample=False, refresh=False,
-                             N=self.small_n)
-        self.g_small.load_graph(refresh=False)
-        self.g_large = Graph(data_dir=os.path.join('data', self.label + 'wiki'),
-                             fname='links', use_sample=False, refresh=False,
-                             N=self.large_n)
-        self.g_large.load_graph(refresh=False)
+        self.g_small = Graph(wiki_code=self.wiki_code, N=self.small_n)
+        self.g_small.load_graph()
+        self.g_small = Graph(wiki_code=self.wiki_code, N=self.large_n)
+        self.g_large.load_graph()
 
 
 class ViewCountRecommender(Recommender):
@@ -214,6 +209,12 @@ class ViewCountRecommender(Recommender):
 
     def add_recommendation(self):
         # find the top recommendation
+
+        # DFS
+        # merken, wenn Knoten zu SCC führt oder nicht (2 Sets)
+        # aufhören, wenn Knoten in SCC oder anderer Komponente als IN liegt
+        # dictionary der out-componente für jeden Knoten mitmerken
+
         scc_node, inc_node, vc_max = None, None, -1
         for idx, wpid in enumerate(self.scc):
             # print('   ', idx+1, '/', len(self.scc))
