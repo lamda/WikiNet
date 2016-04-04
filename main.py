@@ -46,6 +46,7 @@ class Wikipedia(object):
     @property
     def id2title(self):
         if self._id2title is None:
+            print('loading id2title...')
             fpath = os.path.join(self.data_dir, 'id2title.obj')
             self._id2title = read_pickle(fpath)
         return self._id2title
@@ -53,6 +54,7 @@ class Wikipedia(object):
     @property
     def title2id(self):
         if self._id2title is None:
+            print('loading id2title...')
             fpath = os.path.join(self.data_dir, 'id2title.obj')
             self._id2title = read_pickle(fpath)
         if self._title2id is None:
@@ -62,6 +64,7 @@ class Wikipedia(object):
     @property
     def title2redirect(self):
         if self._title2redirect is None:
+            print('loading title2redirect...')
             fpath = os.path.join(self.data_dir, 'title2redirect.obj')
             self._title2redirect = read_pickle(fpath)
         return self._title2redirect

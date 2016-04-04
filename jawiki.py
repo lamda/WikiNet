@@ -2,43 +2,25 @@
 
 from __future__ import division, print_function, unicode_literals
 
-import os
+from main import Wikipedia, Graph
 
-from main import *
-
-from crawler import Crawler
-
-
-DATA_DIR = os.path.join('data', 'jawiki')
-WIKI_NAME = 'jawiki'
-WIKI_CODE = 'ja'
+WIKI_NAME = 'ja'
 DUMP_DATE = '20160203'
+
+
 if __name__ == '__main__':
     from datetime import datetime
     start_time = datetime.now()
 
-    # get_id_dict(DATA_DIR, WIKI_NAME, DUMP_DATE)
-
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE)
-    # crawl(DATA_DIR, WIKI_NAME, WIKI_CODE, DUMP_DATE, recrawl_damaged=True)
-
-    # get_resolved_redirects(DATA_DIR)
-    #
-    # get_divtable_classes_chunks(DATA_DIR)
-    #
-    # combine_divtable_chunks(DATA_DIR)
-
-    # get_id2title_no_redirect(DATA_DIR)
-
-    # get_top_n_links_chunks(DATA_DIR)
-    #
-    # combine_chunks(DATA_DIR)
-
-    # get_all_links_chunks(DATA_DIR)
-    #
-    # combine_all_chunks(DATA_DIR)
-
-    # cleanup(DATA_DIR)
+    wp = Wikipedia(WIKI_NAME, DUMP_DATE)
+    # wp.get_id_dict()
+    # wp.crawl()
+    # wp.crawl(recrawl_damaged=True)
+    # wp.get_resolved_redirects()
+    wp.get_links('all')
+    wp.combine_link_chunks()
+    # wp.get_links('divs_tables')
+    wp.cleanup()
 
     for n_val in [
         1,
@@ -48,12 +30,12 @@ if __name__ == '__main__':
         'all',
     ]:
         print('---------------- N =', n_val, '----------------')
-        g = Graph(data_dir=DATA_DIR, fname='links',
-                  use_sample=False, refresh=False, N=n_val)
-        g.load_graph(refresh=False)
-        # g.compute_stats()
-        g.update_stats()
-        # g.print_stats()
+        g = Graph(wiki_name=WIKI_NAME, N=n_val)
+        g.load_graph()
+        g.compute_stats()
+        # g.update_stats()
+        g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
+
