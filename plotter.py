@@ -603,13 +603,13 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        # 'first_p',
-        # 'lead',
-        # 'all',
-        # 'infobox',
+        'first_p',
+        'lead',
+        'all',
+        'infobox',
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
@@ -619,7 +619,7 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         try:
@@ -630,8 +630,8 @@ if __name__ == '__main__':
     for wp in [
         'simple',
 
-        # 'en',
         # 'de',
+        # 'en',
         # 'fr',
         # 'es',
         # 'ru',
