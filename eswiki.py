@@ -20,27 +20,35 @@ if __name__ == '__main__':
     # wp.get_links(link_type='all', start=None, stop=72)
     # wp.get_links(link_type='all', start=72, stop=144)
     # wp.get_links(link_type='all', start=144, stop=216)
-    wp.get_links(link_type='all', start=216, stop=None)
+    # wp.get_links(link_type='all', start=216, stop=None)
+
+    # wp.get_links(link_type='all', start=None, stop=36)
+    # wp.get_links(link_type='all', start=36, stop=72)
+    # wp.get_links(link_type='all', start=72, stop=108)
+    # wp.get_links(link_type='all', start=108, stop=144)
+    # wp.get_links(link_type='all', start=144, stop=180)
+    # wp.get_links(link_type='all', start=180, stop=216)
+    # wp.get_links(link_type='all', start=216, stop=252)
+    # wp.get_links(link_type='all', start=252, stop=None)
     # wp.get_links('divs_tables')
     # wp.combine_link_chunks()
     # wp.correct_bug()
     # wp.cleanup()
-    # wp.debug_article(877084)
-    # wp.debug_article(273)
+    # import pdb; pdb.set_trace()
 
-    # for n_val in [
-    #     1,
-    #     # 'first_p',
-    #     # 'lead',
-    #     # 'infobox',
-    #     # 'all',
-    # ]:
-    #     print('---------------- N =', n_val, '----------------')
-    #     g = Graph(wiki_code=WIKI_CODE, N=n_val)
-    #     g.load_graph()
-    #     # g.compute_stats()
-    #     g.update_stats()
-    #     g.print_stats()
+    for n_val in [
+        1,
+        'first_p',
+        'lead',
+        'infobox',
+        'all',
+    ]:
+        print('---------------- N =', n_val, '----------------')
+        g = Graph(wiki_code=WIKI_CODE, N=n_val)
+        g.load_graph()
+        g.compute_stats()
+        # g.update_stats()
+        g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

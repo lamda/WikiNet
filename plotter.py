@@ -619,7 +619,7 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         try:
@@ -628,7 +628,7 @@ if __name__ == '__main__':
             pass
 
     for wp in [
-        # 'simple',
+        'simple',
 
         # 'de',
         # 'en',
@@ -637,6 +637,6 @@ if __name__ == '__main__':
         # 'ru',
         # 'it',
         # 'ja',
-        'nl',
+        # 'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

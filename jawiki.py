@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # wp.get_id_dict()
     # wp.crawl()
     # wp.crawl(recrawl_damaged=True)
-    # wp.get_resolved_redirects()
+    wp.get_resolved_redirects()
     wp.get_links('all')
     # wp.get_links('divs_tables')
     wp.correct_bug()

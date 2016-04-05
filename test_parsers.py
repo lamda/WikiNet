@@ -24,7 +24,8 @@ if __name__ == '__main__':
         # ('es', '972'): ['Estado', 'Estado', 'Estado_miembro_de_la_Uni%C3%B3n_Europea'],
         # ('es', '10'): ['Estado_naci%C3%B3n', 'Estado_naci%C3%B3n', 'Archivo:Flag_of_Argentina.svg'],
         # ('es', '7722'): ['Anexo:Pa%C3%ADses_por_poblaci%C3%B3n', 'Hindi', 'Archivo:Flag_of_India.svg'],
-        ('es', '36522'): ['Lat%C3%ADn', 'Lat%C3%ADn', ''],
+        # ('es', '36522'): ['Lat%C3%ADn', 'Lat%C3%ADn', ''],
+        # ('es', '988'): ['Ciencia_formal', 'Ciencia_formal', ''],
         # ('es', '280924'): ['Martes', 'Martes', ''],
         # ('de', '1497705'): ['Medium:De-Deutschland.ogg', 'Medium:De-Deutschland.ogg', 'Datei:Flag_of_Germany.svg'],
         # ('de', '21362'): ['Monarchie', 'Monarchie', ''],  # IB not detected, should be 'Datei:Wappen_Deutsches_Reich_-_K%C3%B6nigreich_Preussen_(Grosses).png'
