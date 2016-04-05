@@ -169,35 +169,53 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
         for repl_string in repl_strings:
             data = data.replace(repl_string, '')
 
-        soup = BeautifulSoup(data, 'html5lib')
-        pretty_data = soup.prettify()
-        try:
-            for line in pretty_data.splitlines():
-                if '<h2><span class="mw-headline"' in line:
-                    if not self.lead_ended:
-                        self.lead_ended = True
-                        if self.debug:
-                            print('++++ LEAD ENDED ++++')
-                    if not self.first_p_or_section_found:
-                        self.first_p_or_section_found = True
-                        if self.debug:
-                            print('++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
-                HTMLParser.HTMLParser.feed(self, line)
-        except IndexError:
+        for line in data.splitlines():
+            if '<h2><span class="mw-headline"' in line:
+                if not self.lead_ended:
+                    self.lead_ended = True
+                    if self.debug:
+                        print('++++ LEAD ENDED ++++')
+                if not self.first_p_or_section_found:
+                    self.first_p_or_section_found = True
+                    if self.debug:
+                        print(
+                            '++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
+            HTMLParser.HTMLParser.feed(self, line)
+
+        if self.first_links == [] or self.lead_links == []:
             if self.debug:
-                print('ERROR - falling back to standard parsing')
+                print('FIRST OR LEAD LINKS EMPTY - TRYING WITH BS4')
             self.reset()
-            for line in data.splitlines():
-                if '<h2><span class="mw-headline"' in line:
-                    if not self.lead_ended:
-                        self.lead_ended = True
-                        if self.debug:
-                            print('++++ LEAD ENDED ++++')
-                    if not self.first_p_or_section_found:
-                        self.first_p_or_section_found = True
-                        if self.debug:
-                            print('++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
-                HTMLParser.HTMLParser.feed(self, line)
+            try:
+                soup = BeautifulSoup(data, 'html5lib')
+                pretty_data = soup.prettify()
+                for line in pretty_data.splitlines():
+                    if '<h2><span class="mw-headline"' in line:
+                        if not self.lead_ended:
+                            self.lead_ended = True
+                            if self.debug:
+                                print('++++ LEAD ENDED ++++')
+                        if not self.first_p_or_section_found:
+                            self.first_p_or_section_found = True
+                            if self.debug:
+                                print('++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
+                    HTMLParser.HTMLParser.feed(self, line)
+            except (IndexError, AttributeError) as e:
+                if self.debug:
+                    print(e)
+                    print('ERROR - falling back to standard parsing')
+                self.reset()
+                for line in data.splitlines():
+                    if '<h2><span class="mw-headline"' in line:
+                        if not self.lead_ended:
+                            self.lead_ended = True
+                            if self.debug:
+                                print('++++ LEAD ENDED ++++')
+                        if not self.first_p_or_section_found:
+                            self.first_p_or_section_found = True
+                            if self.debug:
+                                print('++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
+                    HTMLParser.HTMLParser.feed(self, line)
 
         if debug:
             self.debug = False

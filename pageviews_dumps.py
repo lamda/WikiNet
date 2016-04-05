@@ -811,6 +811,7 @@ def download():
 
 def check_hashes(start=None, stop=None):
     d = {}
+    # http://dumps.wikimedia.org/other/pagecounts-raw/2016/2016-01/md5sums.txt
     for line in open(os.path.join(pageview_dir, 'md5sums.txt')):
         d[line.split()[1]] = line.split()[0]
 

@@ -48,17 +48,17 @@ class Wikipedia(object):
         if self._id2title is None:
             print('loading id2title...')
             fpath = os.path.join(self.data_dir, 'id2title.obj')
-            self._id2title = read_pickle(fpath)
+            try:
+                self._id2title = read_pickle(fpath)
+            except IOError:
+                self.get_id_dict()
+                self._id2title = read_pickle(fpath)
         return self._id2title
 
     @property
     def title2id(self):
-        if self._id2title is None:
-            print('loading id2title...')
-            fpath = os.path.join(self.data_dir, 'id2title.obj')
-            self._id2title = read_pickle(fpath)
         if self._title2id is None:
-            self._title2id = {v: k for k, v in self._id2title.items()}
+            self._title2id = {v: k for k, v in self.id2title.items()}
         return self._title2id
 
     @property
@@ -66,7 +66,11 @@ class Wikipedia(object):
         if self._title2redirect is None:
             print('loading title2redirect...')
             fpath = os.path.join(self.data_dir, 'title2redirect.obj')
-            self._title2redirect = read_pickle(fpath)
+            try:
+                self._title2redirect = read_pickle(fpath)
+            except IOError:
+                self.get_resolved_redirects()
+                self._title2redirect = read_pickle(fpath)
         return self._title2redirect
 
     def get_parser(self, link_type):
@@ -126,6 +130,8 @@ class Wikipedia(object):
             df = pd.read_pickle(os.path.join(self.data_dir, 'html', file_name))
             df = df[~df['redirects_to'].isnull()]
             for k, v in zip(df['title'], df['redirects_to']):
+                if v not in self.title2id:
+                    title2redirect[k] = False
                 title2redirect[k] = v
         print()
 
@@ -135,6 +141,8 @@ class Wikipedia(object):
 
     def get_links(self, link_type, start=None, stop=None):
         print('getting links for type', link_type)
+        if start or stop:
+            print('    start =', start, 'stop =', stop)
 
         html_dir = os.path.join(self.data_dir, 'html')
         file_names = [
@@ -156,11 +164,26 @@ class Wikipedia(object):
                 self.get_link_chunk_divs_tables(fpath)
 
         print()
+        if start is None and stop is None:
+            if link_type == 'all':
+                self.combine_link_chunks()
+            elif link_type == 'divs_tables':
+                self.combine_divs_tables_chunks()
 
-        if link_type == 'all':
-            self.combine_link_chunks()
-        elif link_type == 'divs_tables':
-            self.combine_divs_tables_chunks()
+    def debug_article(self, pid):
+        html_dir = os.path.join(self.data_dir, 'html')
+        file_names = [
+            f
+            for f in os.listdir(html_dir)
+            if f.endswith('.obj')
+            ]
+        for fidx, file_name in enumerate(file_names):
+            print('\r', fidx + 1, '/', len(file_names), end='')
+            fpath = os.path.join(html_dir, file_name)
+            df = pd.read_pickle(fpath)
+            if not df[df['pid'] == pid].empty:
+                print()
+                pdb.set_trace()
 
     def get_link_chunk_all(self, file_path):
         parser = self.get_parser('all')
@@ -213,13 +236,13 @@ class Wikipedia(object):
                 if first_links:
                     parsed_first_links.append(first_links[0])
                 else:
-                    parsed_first_links.append([np.nan])
+                    parsed_first_links.append(np.nan)
                 parsed_first_p_links.append(first_p_links)
                 parsed_lead_links.append(lead_links)
                 parsed_ib_links.append(ib_links)
                 parsed_all_links.append(all_links)
             else:
-                parsed_first_links.append([np.nan])
+                parsed_first_links.append(np.nan)
                 parsed_first_p_links.append([])
                 parsed_lead_links.append([])
                 parsed_ib_links.append([])
@@ -274,9 +297,13 @@ class Wikipedia(object):
                             unicode(row['pid']) + '\t' +
                             ';'.join(row['all_links']) + '\n'
                         )
+                        if isinstance(row['first_link'], list):
+                            first_link = row['first_link'][0]
+                        else:
+                            first_link = row['first_link']
                         outfile_lead.write(
                             unicode(row['pid']) + '\t' +
-                            unicode(row['first_link'][0]) + '\t' +
+                            unicode(first_link) + '\t' +
                             ';'.join(row['first_p_links']) + '\t' +
                             ';'.join(row['lead_links']) + '\t' +
                             ';'.join(row['ib_links']) + '\n'
@@ -319,6 +346,9 @@ class Wikipedia(object):
     def resolve_redirects(self, links):
         result = []
         for link in links:
+            if link in self.title2redirect and self.title2redirect[link] == False:
+                # skip redirects that redirect outside the article namespace
+                continue
             try:
                 result.append(self.title2id[self.title2redirect[link]])
             except KeyError:
@@ -475,8 +505,11 @@ class Graph(object):
         # assign titles as a vertex property
         vp_title = self.graph.new_vertex_property('string')
         for vertex in debug_iter(self.graph.vertices()):
-            title = id2title[int(self.graph.vp['name'][vertex])]
-            vp_title[self.graph.vertex(vertex)] = title
+            try:
+                title = id2title[int(self.graph.vp['name'][vertex])]
+                vp_title[self.graph.vertex(vertex)] = title
+            except KeyError:
+                pdb.set_trace()
         self.graph.vp['title'] = vp_title
         self.save()
 
@@ -596,8 +629,8 @@ class Graph(object):
 
     def cycle_components(self):
         print('cycle_components()')
-        # name2node = {self.graph.vp['title'][n]: n for n in self.graph.vertices()}
-        # pdb.set_trace()
+        name2node = {self.graph.vp['title'][n]: n for n in self.graph.vertices()}
+        pdb.set_trace()
         print('    get number of vertices per component')
         component, histogram = gt.label_components(self.graph)
         comp2verts = {i: list() for i in range(len(histogram))}
