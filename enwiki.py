@@ -19,6 +19,7 @@ if __name__ == '__main__':
     # wp.get_resolved_redirects()
     wp.get_links('all')
     # wp.get_links('divs_tables')
+    wp.correct_bug()
     wp.cleanup()
 
     for n_val in [

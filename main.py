@@ -154,9 +154,6 @@ class Wikipedia(object):
                 self.get_link_chunk_all(fpath)
             elif link_type == 'divs_tables':
                 self.get_link_chunk_divs_tables(fpath)
-            ## df = pd.read_pickle(fpath)
-            ## df.rename(columns={'first_lead_links': 'first_p_links'}, inplace=True)
-            ## pd.to_pickle(df, fpath)
 
         print()
 
@@ -183,11 +180,11 @@ class Wikipedia(object):
                 # if row['pid'] == dbg_pid:
                 #     dbg = True
                 parser.feed(row['content'], debug=dbg)
-                first_link, first_p_links, lead_links, ib_links,\
+                first_links, first_p_links, lead_links, ib_links,\
                     all_links = parser.get_data()
 
                 # fix double % encoding
-                first_link = [l.replace('%25', '%') for l in first_link]
+                first_links = [l.replace('%25', '%') for l in first_links]
                 first_p_links = [l.replace('%25', '%') for l in first_p_links]
                 lead_links = [l.replace('%25', '%') for l in lead_links]
                 ib_links = [l.replace('%25', '%') for l in ib_links]
@@ -197,7 +194,7 @@ class Wikipedia(object):
                 # print('Debug ID')
                 # print('\nhttp://' + self.wiki_name +
                 #       '.wikipedia.org?curid=%d' % row['pid'], row['title'])
-                # print('----FIRST LINK:', first_link)
+                # print('----FIRST LINK:', first_links)
                 # print('----IB LINKS:')
                 # for l in ib_links[:10]:
                 #     print('   ', l)
@@ -207,14 +204,14 @@ class Wikipedia(object):
                 # pdb.set_trace()
                 # parser.feed(row['content'], debug=True)
 
-                first_link = self.resolve_redirects(first_link)
+                first_links = self.resolve_redirects(first_links)
                 first_p_links = self.resolve_redirects(first_p_links)
                 lead_links = self.resolve_redirects(lead_links)
                 ib_links = self.resolve_redirects(ib_links)
                 all_links = self.resolve_redirects(all_links)
 
-                if first_link:
-                    parsed_first_links.append(first_link)
+                if first_links:
+                    parsed_first_links.append(first_links[0])
                 else:
                     parsed_first_links.append([np.nan])
                 parsed_first_p_links.append(first_p_links)
@@ -333,6 +330,21 @@ class Wikipedia(object):
                     # print('       ', link, 'not found ----')
                     pass
         return [unicode(l) for l in result]
+
+    def correct_bug(self):
+        for file_name_original in [
+            'links.tsv',
+            'alllinks.tsv',
+        ]:
+            fpath_original = os.path.join(self.data_dir, file_name_original)
+            fpath_tmp = os.path.join(self.data_dir, file_name_original + 'tmp')
+            os.rename(fpath_original, fpath_tmp)
+
+            with open(fpath_tmp) as infile, open(fpath_original, 'w') as outfile:
+                for line in infile:
+                    line = line.replace('.0', '')
+                    outfile.write(line)
+            os.remove(fpath_tmp)
 
     def cleanup(self):
         files = [f for f in os.listdir(self.data_dir) if f.endswith('.gt')]
@@ -501,8 +513,8 @@ class Graph(object):
         self.load_stats()
         if self.N == 1:
             self.stats['comp_stats'] = self.cycle_components()
-        self.stats['bow_tie'] = self.bow_tie()
-        self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        # self.stats['bow_tie'] = self.bow_tie()
+        # self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         self.save_stats()
 
     def print_stats(self):
@@ -584,7 +596,8 @@ class Graph(object):
 
     def cycle_components(self):
         print('cycle_components()')
-
+        # name2node = {self.graph.vp['title'][n]: n for n in self.graph.vertices()}
+        # pdb.set_trace()
         print('    get number of vertices per component')
         component, histogram = gt.label_components(self.graph)
         comp2verts = {i: list() for i in range(len(histogram))}
@@ -615,7 +628,7 @@ class Graph(object):
             [self.graph.vp['title'][node] for node in comp]
             for comp in comps
         ]
-
+        # pdb.set_trace()
         comp_stats = []
         for comp, incomp_size, comp_name in zip(comps, incomps, comp_names):
             comp_stats.append(
@@ -627,6 +640,7 @@ class Graph(object):
                 }
             )
         comp_stats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
+        # pdb.set_trace()
 
         return comp_stats
 
@@ -925,24 +939,9 @@ class Graph(object):
 
 
 if __name__ == '__main__':
-    wikipedias = [
-        'simple',
+    pid = '1173'
+    wiki = 'es'
 
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
-    ]
-
-    # data = io.open('test.txt', encoding='utf-8').read()
-
-    # pid = '1698838'
-    # wiki = 'ja'
-    #
     # import urllib2
     # url = 'https://' + wiki + '.wikipedia.org/w/api.php?format=json&rvstart=20160203235959&prop=revisions|categories&continue&pageids=%s&action=query&rvprop=content&rvparse&cllimit=500&clshow=!hidden&redirects=True'
     # print(url % pid)
@@ -950,24 +949,31 @@ if __name__ == '__main__':
     # data = response.read().decode('utf-8')
     # with io.open('test2.txt', 'w', encoding='utf-8') as outfile:
     #     outfile.write(data)
-    #
-    # import json
-    # with io.open('test2.txt', encoding='utf-8', errors='ignore') as infile:
-    #     data_original = json.load(infile)
-    # data = data_original['query']['pages'][pid]['revisions'][0]['*']
-    #
-    # parser = WikipediaHTMLAllParser()
-    # parser.feed(data)
-    #
-    # ib_links, lead_links, first_p_len = parser.get_data()
-    # # fix double % encoding
-    # ib_links = [l.replace('%25', '%') for l in ib_links]
-    # lead_links = [l.replace('%25', '%') for l in lead_links]
-    #
-    # print('INFOBOX:')
-    # for l in ib_links[:10]:
-    #     print('   ', l)
-    # print('\nLEAD:')
-    # for l in lead_links[:10]:
-    #     print('   ', l)
-    # pdb.set_trace()
+
+    with io.open('test2.txt', encoding='utf-8', errors='ignore') as infile:
+        data_original = json.load(infile)
+    data = data_original['query']['pages'][pid]['revisions'][0]['*']
+
+    parser = WikipediaHTMLParser(label=wiki + 'wiki')
+    parser.feed(data)
+
+    print('\nhttp://' + wiki +
+          '.wikipedia.org?curid=%s' % pid)
+    first_links, first_p_links, lead_links, ib_links, all_links = parser.get_data()
+    # fix double % encoding
+    first_links = [l.replace('%25', '%') for l in first_links]
+    first_p_links = [l.replace('%25', '%') for l in first_p_links]
+    lead_links = [l.replace('%25', '%') for l in lead_links]
+    ib_links = [l.replace('%25', '%') for l in ib_links]
+    all_links = [l.replace('%25', '%') for l in all_links]
+    print('----FIRST LINKS:')
+    for l in first_links:
+        print('   ', l)
+    print('----IB LINKS:')
+    for l in ib_links[:10]:
+        print('   ', l)
+    print('----LEAD LINKS:')
+    for l in lead_links[:10]:
+        print('   ', l)
+    pdb.set_trace()
+    parser.feed(data, debug='links')

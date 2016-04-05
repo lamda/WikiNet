@@ -211,7 +211,7 @@ class Plotter(object):
             text = self.label2language[self.label[:-4]] + ' & ' + self.label[:-4]
             print(text)
             outfile.write(text)
-            for cidx, cstat in enumerate(cstats[:3]):
+            for cidx, cstat in enumerate(cstats[:10]):
                 cover = 100 * cstat['incomp_size'] / no_articles
                 names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
@@ -609,7 +609,7 @@ if __name__ == '__main__':
         'infobox',
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
@@ -619,7 +619,7 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         try:
@@ -628,15 +628,15 @@ if __name__ == '__main__':
             pass
 
     for wp in [
-        'simple',
+        # 'simple',
 
         # 'de',
         # 'en',
-        # 'fr',
         # 'es',
+        # 'fr',
         # 'ru',
         # 'it',
         # 'ja',
-        # 'nl',
+        'nl',
     ]:
         p = Plotter(wp + 'wiki', to_plot=to_plot)

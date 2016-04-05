@@ -2,6 +2,8 @@
 
 from __future__ import division, print_function, unicode_literals
 
+from bs4 import BeautifulSoup
+
 import HTMLParser
 import pdb
 
@@ -10,12 +12,13 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
     def __init__(self, label, debug=False):
         HTMLParser.HTMLParser.__init__(self)
         self.label = label
-        self.first_link = None
+        self.first_links = []
         self.lead_links = []
         self.infobox_links = []
         self.links = []
         self.parentheses_counter = 0
-        self.first_link_found = False
+        self.first_links_found = False
+        self.first_link_tracking = False
         self.first_p_or_section_found = False
         self.first_p_ended = False
         self.lead_ended = False
@@ -132,12 +135,13 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             pdb.set_trace()
 
     def reset(self):
-        self.first_link = None
+        self.first_links = []
         self.lead_links = []
         self.infobox_links = []
         self.links = []
         self.parentheses_counter = 0
-        self.first_link_found = False
+        self.first_links_found = False
+        self.first_link_tracking = False
         self.first_p_or_section_found = False
         self.first_p_len = 0
         self.first_p_ended = False
@@ -156,38 +160,56 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             self.debug = True
             if debug == 'links':
                 self.debug_links = True
-        # data = data.split('<h2><span class="mw-headline"')[0]
 
         repl_strings = [
             '<p>\n</p>',
             '<p> </p>',
             '<p></p>',
         ]
-
         for repl_string in repl_strings:
             data = data.replace(repl_string, '')
-        for line in data.splitlines():
-            if '<h2><span class="mw-headline"' in line:
-                if not self.lead_ended:
-                    self.lead_ended = True
-                    if self.debug:
-                        print('++++ LEAD ENDED ++++')
-                if not self.first_p_or_section_found:
-                    self.first_p_or_section_found = True
-                    if self.debug:
-                        print('++++ FIRST P OR SECTION FOUND ++++ (mw-headline)')
-            HTMLParser.HTMLParser.feed(self, line)
+
+        soup = BeautifulSoup(data, 'html5lib')
+        pretty_data = soup.prettify()
+        try:
+            for line in pretty_data.splitlines():
+                if '<h2><span class="mw-headline"' in line:
+                    if not self.lead_ended:
+                        self.lead_ended = True
+                        if self.debug:
+                            print('++++ LEAD ENDED ++++')
+                    if not self.first_p_or_section_found:
+                        self.first_p_or_section_found = True
+                        if self.debug:
+                            print('++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
+                HTMLParser.HTMLParser.feed(self, line)
+        except IndexError:
+            if self.debug:
+                print('ERROR - falling back to standard parsing')
+            self.reset()
+            for line in data.splitlines():
+                if '<h2><span class="mw-headline"' in line:
+                    if not self.lead_ended:
+                        self.lead_ended = True
+                        if self.debug:
+                            print('++++ LEAD ENDED ++++')
+                    if not self.first_p_or_section_found:
+                        self.first_p_or_section_found = True
+                        if self.debug:
+                            print('++++ FIRST P, UL OR SECTION FOUND ++++ (mw-headline)')
+                HTMLParser.HTMLParser.feed(self, line)
+
         if debug:
             self.debug = False
             if debug == 'links':
                 self.debug_links = False
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'p':
+        if tag == 'p' or tag == 'ul':
             if self.div_counter_any < 1 and self.table_counter_any < 1 and \
                     not self.first_p_or_section_found:
                 if self.debug:
-                    print('++++ FIRST P OR SECTION FOUND ++++ (tag == p)')
+                    print('++++ FIRST P, UL OR SECTION FOUND ++++ (tag == p)')
                 self.first_p_or_section_found = True
             self.parentheses_counter = 0
 
@@ -198,11 +220,6 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 if self.debug:
                     if self.debug_links:
                         print('   ', self.links[-1], end='')
-                    # if not self.tracking_table and self.links[-1] == 'Chemical_element':
-                    #     print('\n', self.lead_ended)
-                    #     print(self.div_counter_any, self.table_counter_any)
-                    #     print(self.first_p_or_section_found)
-                    #     pdb.set_trace()
                 if (not self.lead_ended and
                         self.div_counter_any == 0 and
                         self.table_counter_any == 0 and
@@ -210,13 +227,15 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                     self.lead_links.append(self.links[-1])
                     if self.debug_links:
                         print(' (LEAD)', end='')
-                if (not self.first_link_found and
+                if (not self.first_links_found and
                         self.first_p_or_section_found and
                         self.div_counter_any == 0 and
                         self.table_counter_any == 0 and
                         self.parentheses_counter == 0):
-                    self.first_link = self.links[-1]
-                    self.first_link_found = True
+                    self.first_links.append(self.links[-1])
+                    self.first_link_tracking = True
+                    if len(self.first_links) >= 5:
+                        self.first_links_found = True
                     if self.debug_links:
                         print('(FIRST LINK)', end='')
 
@@ -271,12 +290,24 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
                 if self.debug and self.tracking_table == 0:
                     print('---- stop tracking table ----')
 
-        elif tag == 'p' and not self.first_p_ended and self.first_p_or_section_found:
+        elif (tag == 'p' or tag == 'ul') and\
+                not self.first_p_ended and self.first_p_or_section_found:
             self.first_p_ended = True
             self.first_p_len = len(self.lead_links)
 
     def handle_data(self, d):
-        if self.tracking_div or self.tracking_table or self.first_link_found:
+        if self.first_link_tracking:
+            prefix = d.strip()
+            if prefix:
+                prefix = prefix[0]
+                if (prefix in '([{' or
+                        (self.label == 'jawiki' and prefix in self.japars_open)):
+                    self.first_links.pop()
+                    if len(self.first_links) < 5:
+                        self.first_links_found = False
+            self.first_link_tracking = False
+
+        if self.tracking_div or self.tracking_table or self.first_links_found:
             return
         par_diff = d.count('(') + d.count('[') + d.count('{') -\
                    d.count(')') - d.count(']') - d.count('}')
@@ -284,17 +315,10 @@ class WikipediaHTMLParser(HTMLParser.HTMLParser):
             par_plus = sum(d.count(po) for po in self.japars_open)
             par_minus = sum(d.count(pc) for pc in self.japars_closed)
             par_diff = par_plus - par_minus
-        # if self.debug and par_diff != 0:
-        # if self.debug:
-        #     print ('----> ', par_diff, d)
         self.parentheses_counter += par_diff
 
     def get_data(self):
-        if self.first_link is None:
-            self.first_link = []
-        else:
-            self.first_link = [self.first_link]
-        return self.first_link, self.lead_links[:self.first_p_len],\
+        return self.first_links, self.lead_links[:self.first_p_len],\
             self.lead_links, self.infobox_links, self.links
 
 

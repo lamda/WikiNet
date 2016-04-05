@@ -11,17 +11,30 @@ import operator
 import os
 import pdb
 import random
+import signal
 
 from main import Graph
 from tools import read_pickle, write_pickle, url_unescape
 
 
-class SearchTest(object):
+class TimeoutException(Exception):   # Custom exception class
+    pass
+
+
+def timeout_handler(signum, frame):   # Custom signal handler
+    raise TimeoutException
+
+# Change the behavior of SIGALRM
+signal.signal(signal.SIGALRM, timeout_handler)
+
+
+class BaseRecommender(object):
     def __init__(self):
-        self.node2out_component = collections.defaultdict(lambda: None)
-        self.inc_v, self.scc_v = None, None
+        self.scc, self.inc = set(), set()
+        self.scc_vs, self.inc_vs = set(), set()
+        self.node2out_component = {}
 
-    def find_nodes_old(self, start_node, inc, scc, do_debug=False):
+    def find_nodes(self, start_node, inc, scc, do_debug=False):
         # via networkx.algorithms.simple_paths.all_simple_paths
         if do_debug:
             debug = lambda *text: print(' '.join(str(t) for t in text))
@@ -29,82 +42,27 @@ class SearchTest(object):
             debug = lambda *text: None
 
         debug('\nstarting from', int(start_node), '---------------')
-        visited = [start_node]
-        stack = [(start_node, start_node.out_neighbours())]
-        while stack:
-            node, nb_generator = stack[-1]
-            nb = next(nb_generator, None)
-            debug('node =', node, 'nb =', int(nb) if nb else 'None')
-            if nb is None:
-                if self.node2out_component[node] or set(visited) & scc:
-                    if not self.node2out_component[node]:
-                        self.node2out_component[node] = set()
-                    self.node2out_component[node] |= set(map(int, visited)) - scc
-                else:
-                    self.node2out_component[node] = False
-                debug('    NB is None, setting node2out_component to',
-                      self.node2out_component[node])
-                stack.pop()
-                visited.pop()
-            elif self.node2out_component[nb] is not None:
-                debug('    NODE already computed as', self.node2out_component[nb])
-                if self.node2out_component[nb]:
-                    if not self.node2out_component[node]:
-                        self.node2out_component[node] = set()
-                    self.node2out_component[node] |= self.node2out_component[nb]
-            elif nb in scc:
-                debug('    nb in SCC')
-                visited.append(nb)
-            elif nb not in inc:
-                debug('    nb not in INC or SCC, skipping')
-                pass
-            elif nb not in visited:
-                debug('    nb not yet visited')
-                visited.append(nb)
-                stack.append((nb, nb.out_neighbours()))
-            debug('node2out_component: ++++++++')
-            for k, v in self.node2out_component.items():
-                debug('   ', k, v)
-            debug('--------------------------------')
-
-    def find_nodes(self, start_node, inc=None, scc=None, do_debug=False):
-        # via networkx.algorithms.simple_paths.all_simple_paths
-        if inc is None:
-            inc = self.inc_v
-        if scc is None:
-            scc = self.scc_v
-        if do_debug:
-            debug = lambda *text: print(' '.join(str(t) for t in text))
-        else:
-            debug = lambda *text: None
-
-        debug('\nstarting from', int(start_node), '---------------')
+        self.node2out_component[int(start_node)] = set([int(start_node)])
         visited = [start_node]
         stack = [(int(start_node), start_node.out_neighbours())]
         while stack:
             node, nb_generator = stack[-1]
             nb = next(nb_generator, None)
             debug('node =', node, 'nb =', int(nb) if nb else 'None')
-            if nb is None:
-                if self.node2out_component[node] or set(visited) & scc:
-                    if not self.node2out_component[node]:
-                        self.node2out_component[node] = set()
-                    self.node2out_component[node] |= set(
+            if nb in visited:
+                debug('    nb in visited')
+            elif nb is None:
+                if set(visited) & scc:
+                    self.node2out_component[int(start_node)] |= set(
                         map(int, visited)) - scc
-                else:
-                    self.node2out_component[node] = False
                 debug('    NB is None, setting node2out_component to',
-                      self.node2out_component[node])
+                      self.node2out_component[int(start_node)])
                 stack.pop()
                 visited.pop()
-            elif self.node2out_component[int(nb)] is not None:
+            elif int(nb) in self.node2out_component:
                 debug('    NODE already computed as',
                       self.node2out_component[int(nb)])
-                if self.node2out_component[int(nb)]:
-                    if not self.node2out_component[node]:
-                        self.node2out_component[node] = set()
-                    self.node2out_component[node] |= self.node2out_component[
-                        int(nb)]
+                self.node2out_component[int(start_node)] |= self.node2out_component[int(nb)]
             elif nb in scc:
                 debug('    nb in SCC')
                 visited.append(nb)
@@ -119,98 +77,23 @@ class SearchTest(object):
             for k, v in self.node2out_component.items():
                 debug('   ', k, v)
             debug('--------------------------------')
-            # pdb.set_trace()
-
-    def get_reach(self, graph, nodes, inc, scc):
-        for nidx, node in enumerate(nodes):
-            # print('\r', nidx+1, '/', len(nodes), end='')
-            self.find_nodes(graph.vertex(node), inc, scc, do_debug=False)
-        print()
-
-    def test_node2reach(self):
-        g = gt.Graph(directed=True)
-        v0 = g.add_vertex()
-        v1 = g.add_vertex()
-        v2 = g.add_vertex()
-        v3 = g.add_vertex()
-        v4 = g.add_vertex()
-        v5 = g.add_vertex()
-        v6 = g.add_vertex()
-        g.add_edge_list([
-            (v1, v0),
-            (v2, v6),
-            (v2, v0),
-            (v2, v1),
-            (v3, v1),
-            (v3, v2),
-            (v3, v4),
-            (v4, v5),
-        ])
-        self.get_reach(graph=g, nodes=[v1, v2, v3],
-                       inc={v1, v2, v3}, scc={v0, v6})
-        for node, out_component in self.node2out_component.items():
-            if out_component:
-                print(node, map(int, out_component))
-            else:
-                print(node, out_component)
-        # assert node2out_component == {
-        #     1: [1],
-        #     2: [1, 2],
-        #     3: [1, 2, 3],
-        #     4: False,
-        #     5: False,
-        # }
-        pdb.set_trace()
-
-    def test_node2reach2(self):
-        g = gt.Graph(directed=True)
-        v0 = g.add_vertex()
-        v1 = g.add_vertex()
-        v2 = g.add_vertex()
-        v3 = g.add_vertex()
-        v4 = g.add_vertex()
-        v5 = g.add_vertex()
-        g.add_edge_list([
-            (v1, v0),
-            (v1, v2),
-            (v1, v3),
-            (v2, v0),
-            (v2, v1),
-            (v2, v3),
-            (v3, v1),
-            (v3, v2),
-            (v3, v4),
-            (v4, v5),
-        ])
-        self.get_reach(graph=g, nodes=[v1, v2, v3],
-                       inc={v1, v2, v3}, scc={v0})
-
-        for node, out_component in self.node2out_component.items():
-            if out_component:
-                print(node, map(int, out_component))
-            else:
-                print(node, out_component)
-        # assert node2out_component == {
-        #     1: [1],
-        #     2: [1, 2],
-        #     3: [1, 2, 3],
-        #     4: False,
-        #     5: False,
-        # }
-        pdb.set_trace()
+            if do_debug:
+                pdb.set_trace()
 
 
-class Recommender(object):
+class Recommender(BaseRecommender):
     def __init__(self, wiki_code, small_n='first_p', large_n='lead',
                  n_recs=100):
+        BaseRecommender.__init__(self)
         self.wiki_code = wiki_code
         self.wiki_name = wiki_code + 'wiki'
+        print(self.wiki_name)
         self.small_n, self.large_n = small_n, large_n
         self.g_small, self.g_large = None, None
-        self.load_graphs()
-
         self.n_recs = n_recs
         self.vc_ratios, self.scc_sizes = [], []
+
+        self.load_graphs()
         fpath = os.path.join('data', 'pageviews', 'filtered')
         fname = 'id2views-' + self.wiki_code + '.obj'
         self.id2views = read_pickle(os.path.join(fpath, fname))
@@ -218,16 +101,13 @@ class Recommender(object):
                                for v in self.g_small.graph.vertices()}
         self.wid2node_large = {self.g_large.graph.vp['name'][v]: v
                                for v in self.g_large.graph.vertices()}
-
-        self.scc, self.inc = set(), set()
-        self.scc_vs, self.inc_vs = set(), set()
-        self.scc_sum_vc, self.inc_sum_vc = 0, 0
         self.graph_reversed = gt.GraphView(self.g_small.graph, reversed=True,
                                            directed=True)
+
+        self.scc_sum_vc, self.inc_sum_vc = 0, 0
         scc_size, vc_ratio = self.get_stats()
         self.scc_sizes = [scc_size]
         self.vc_ratios = [vc_ratio]
-        self.node2out_component = collections.defaultdict(lambda: None)
 
     def get_stats(self):
         # get SCC and IN
@@ -262,54 +142,7 @@ class Recommender(object):
         self.g_large = Graph(wiki_code=self.wiki_code, N=self.large_n)
         self.g_large.load_graph()
 
-    def find_nodes(self, start_node, do_debug=False):
-        # via networkx.algorithms.simple_paths.all_simple_paths
-        if do_debug:
-            debug = lambda *text: print(' '.join(str(t) for t in text))
-        else:
-            debug = lambda *text: None
-
-        debug('\nstarting from', int(start_node), '---------------')
-        visited = [start_node]
-        stack = [(int(start_node), start_node.out_neighbours())]
-        while stack:
-            node, nb_generator = stack[-1]
-            nb = next(nb_generator, None)
-            debug('node =', node, 'nb =', int(nb) if nb else 'None')
-            if nb is None:
-                if self.node2out_component[node] or set(visited) & self.scc_vs:
-                    if not self.node2out_component[node]:
-                        self.node2out_component[node] = set()
-                    self.node2out_component[node] |= set(map(int, visited)) - self.scc_vs
-                else:
-                    self.node2out_component[node] = False
-                debug('    NB is None, setting node2out_component to',
-                      self.node2out_component[node])
-                stack.pop()
-                visited.pop()
-            elif self.node2out_component[int(nb)] is not None:
-                debug('    NODE already computed as', self.node2out_component[int(nb)])
-                if self.node2out_component[int(nb)]:
-                    if not self.node2out_component[node]:
-                        self.node2out_component[node] = set()
-                    self.node2out_component[node] |= self.node2out_component[int(nb)]
-            elif nb in self.scc_vs:
-                debug('    nb in SCC')
-                visited.append(nb)
-            elif nb not in self.inc_vs:
-                debug('    nb not in INC or SCC, skipping')
-                pass
-            elif nb not in visited:
-                debug('    nb not yet visited')
-                visited.append(nb)
-                stack.append((int(nb), nb.out_neighbours()))
-            debug('node2out_component: ++++++++')
-            for k, v in self.node2out_component.items():
-                debug('   ', k, v)
-            debug('--------------------------------')
-            pdb.set_trace()
-
-    def get_reach(self):
+    def get_reach(self, inc=None, scc=None):
         fpath = os.path.join('data', self.wiki_name, 'reach.obj')
         try:
             self.node2out_component = read_pickle(fpath)
@@ -317,18 +150,38 @@ class Recommender(object):
         except IOError:
             pass
         print('getting reach...')
+        if inc is None:
+            inc = self.inc_vs
+        if scc is None:
+            scc = self.scc_vs
+        skipped_nodes = []
+        # via http://stackoverflow.com/questions/25027122
         for nidx, node in enumerate(self.inc_vs):
             print('\r   ', nidx+1, '/', len(self.inc_vs), end='')
-            self.find_nodes(self.g_small.graph.vertex(node), do_debug=False)
-            break
-        print()
-        pdb.set_trace()
+            signal.alarm(5)
+            try:
+                self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False)
+            except TimeoutException:
+                skipped_nodes.append(node)
+            else:
+                signal.alarm(0)
+
+        print('\nretrying for skipped nodes...')
+        for nidx, node in enumerate(skipped_nodes):
+            print('\r   ', nidx + 1, '/', len(skipped_nodes), end='')
+            self.find_nodes(
+                start_node=self.g_small.graph.vertex(node),
+                inc=inc, scc=scc,
+                do_debug=False)
         write_pickle(fpath, self.node2out_component)
 
 
 class ViewCountRecommender(Recommender):
-    def __init__(self, label, small_n='first_p', large_n='lead', n_recs=100):
-        Recommender.__init__(self, label, small_n, large_n, n_recs)
+    def __init__(self, wiki_code, small_n='first_p', large_n='lead', n_recs=100):
+        Recommender.__init__(self, wiki_code, small_n, large_n, n_recs)
         self.scc_inc_vc = []
 
     def get_recommendation_candidates(self):
@@ -359,6 +212,7 @@ class ViewCountRecommender(Recommender):
         # compute the effects of adding it
         vc_change = 0
         scc_change = 0
+        # TODO: scc_node and inc_node are wpids, self.node2out_component saves graph vertex ids
         pdb.set_trace()
         for node in self.node2out_component[inc_node]:
             if node not in self.scc:
@@ -375,6 +229,7 @@ class ViewCountRecommender(Recommender):
 
     def recommend(self):
         self.get_reach()
+        pdb.set_trace()
         self.get_recommendation_candidates()
         print('adding recommendations...')
         for i in range(self.n_recs):
@@ -387,13 +242,197 @@ class ViewCountRecommender(Recommender):
         self.g_small.save_stats()
 
 
+class TestRecommender(BaseRecommender):
+    def __init__(self):
+        BaseRecommender.__init__(self)
+
+    def get_reach_test(self, graph, nodes, inc=None, scc=None, do_debug=False):
+        self.node2out_component = {}
+        if inc is None:
+            inc = self.inc_vs
+        if scc is None:
+            scc = self.scc_vs
+        for nidx, node in enumerate(nodes):
+            # print('\r', nidx+1, '/', len(nodes), end='')
+            self.find_nodes(graph.vertex(node), inc, scc, do_debug=do_debug)
+        print()
+        self.node2out_component = {
+            k: v for k, v in self.node2out_component.items() if k in inc
+        }
+
+    def test_node2reach(self):
+        g = gt.Graph(directed=True)
+        v0 = g.add_vertex()
+        v1 = g.add_vertex()
+        v2 = g.add_vertex()
+        v3 = g.add_vertex()
+        v4 = g.add_vertex()
+        v5 = g.add_vertex()
+        v6 = g.add_vertex()
+        g.add_edge_list([
+            (v1, v0),
+            (v2, v6),
+            (v2, v0),
+            (v2, v1),
+            (v3, v1),
+            (v3, v2),
+            (v3, v4),
+            (v4, v5),
+        ])
+        self.get_reach_test(graph=g, nodes=[v1, v2, v3],
+                       inc={v1, v2, v3}, scc={v0, v6})
+        for node, out_component in self.node2out_component.items():
+            if out_component:
+                print(node, map(int, out_component))
+            else:
+                print(node, out_component)
+
+        assert self.node2out_component == {
+            1: {1},
+            2: {1, 2},
+            3: {1, 2, 3},
+        }
+
+    def test_node2reach2(self):
+        g = gt.Graph(directed=True)
+        v0 = g.add_vertex()
+        v1 = g.add_vertex()
+        v2 = g.add_vertex()
+        v3 = g.add_vertex()
+        v4 = g.add_vertex()
+        v5 = g.add_vertex()
+        g.add_edge_list([
+            (v1, v0),
+            (v1, v2),
+            (v1, v3),
+            (v2, v0),
+            (v2, v1),
+            (v2, v3),
+            (v3, v1),
+            (v3, v2),
+            (v3, v4),
+            (v4, v5),
+        ])
+        self.get_reach_test(graph=g, nodes=[v1, v2, v3],
+                       inc={v1, v2, v3}, scc={v0})
+
+        for node, out_component in self.node2out_component.items():
+            if out_component:
+                print(node, map(int, out_component))
+            else:
+                print(node, out_component)
+        assert self.node2out_component == {
+            1: {1, 2, 3},
+            2: {1, 2, 3},
+            3: {1, 2, 3},
+        }
+
+    def test_node2reach3(self):
+        g = gt.Graph(directed=True)
+        v0 = g.add_vertex()
+        v1 = g.add_vertex()
+        v2 = g.add_vertex()
+        v3 = g.add_vertex()
+        v4 = g.add_vertex()
+        v5 = g.add_vertex()
+        v6 = g.add_vertex()
+        v7 = g.add_vertex()
+        g.add_edge_list([
+            (v1, v0),
+            (v1, v2),
+            (v2, v0),
+            (v2, v5),
+            (v3, v2),
+            (v4, v1),
+            (v5, v6),
+            (v6, v3),
+            (v7, v5),
+            (v7, v4),
+        ])
+        self.get_reach_test(graph=g, nodes=[v1, v2, v3, v4, v5, v6, v7],
+                       inc={v1, v2, v3, v4, v5, v6, v7}, scc={v0},
+                       do_debug=False)
+
+        for node, out_component in self.node2out_component.items():
+            if out_component:
+                print(node, map(int, out_component))
+            else:
+                print(node, out_component)
+        assert self.node2out_component == {
+            1: {1, 2, 3, 5, 6},
+            2: {2, 3, 5, 6},
+            3: {2, 3, 5, 6},
+            4: {1, 2, 3, 4, 5, 6},
+            5: {2, 3, 5, 6},
+            6: {2, 3, 5, 6},
+            7: {1, 2, 3, 4, 5, 6, 7},
+        }
+
+    def test_node2reach4(self):
+        g = gt.Graph(directed=True)
+        v0 = g.add_vertex()
+        v1 = g.add_vertex()
+        v2 = g.add_vertex()
+        v3 = g.add_vertex()
+        v4 = g.add_vertex()
+        v5 = g.add_vertex()
+        v6 = g.add_vertex()
+        v7 = g.add_vertex()
+        v8 = g.add_vertex()
+        v9 = g.add_vertex()
+        v10 = g.add_vertex()
+        v11 = g.add_vertex()
+        g.add_edge_list([
+            (v1, v0),
+            (v1, v2),
+            (v2, v0),
+            (v2, v5),
+            (v3, v2),
+            (v4, v1),
+            (v5, v6),
+            (v6, v3),
+            (v7, v5),
+            (v7, v4),
+            (v7, v8),
+            (v5, v9),
+            (v8, v5),
+            (v9, v10),
+            (v10, v11),
+            (v11, v8),
+        ])
+        self.get_reach_test(graph=g, nodes=[v1, v2, v3, v4, v5, v6, v7],
+                       inc={v1, v2, v3, v4, v5, v6, v7}, scc={v0},
+                       do_debug=False)
+
+        for node, out_component in self.node2out_component.items():
+            if out_component:
+                print(node, map(int, out_component))
+            else:
+                print(node, out_component)
+        assert self.node2out_component == {
+            1: {1, 2, 3, 5, 6},
+            2: {2, 3, 5, 6},
+            3: {2, 3, 5, 6},
+            4: {1, 2, 3, 4, 5, 6},
+            5: {2, 3, 5, 6},
+            6: {2, 3, 5, 6},
+            7: {1, 2, 3, 4, 5, 6, 7},
+        }
+
+
 if __name__ == '__main__':
     # vc_recommender = ViewCountRecommender('simple', n_recs=10)
     # vc_recommender.recommend()
 
-    st = SearchTest()
-    st.test_node2reach()
-    st.test_node2reach2()
+    vc_recommender = ViewCountRecommender('it', n_recs=10)
+    vc_recommender.recommend()
+
+
+    # st = TestRecommender()
+    # st.test_node2reach()
+    # st.test_node2reach2()
+    # st.test_node2reach3()
+    # st.test_node2reach4()
 
     # wikipedias = [
     #     'simple',
