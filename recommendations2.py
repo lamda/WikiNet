@@ -24,6 +24,8 @@ class TimeoutException(Exception):   # Custom exception class
 def timeout_handler(signum, frame):   # Custom signal handler
     raise TimeoutException
 
+
+# via http://stackoverflow.com/questions/25027122
 # Change the behavior of SIGALRM
 signal.signal(signal.SIGALRM, timeout_handler)
 
@@ -154,11 +156,13 @@ class Recommender(BaseRecommender):
             inc = self.inc_vs
         if scc is None:
             scc = self.scc_vs
+
+        print('\ntrying with 2 seconds...')
         skipped_nodes = []
         # via http://stackoverflow.com/questions/25027122
         for nidx, node in enumerate(self.inc_vs):
             print('\r   ', nidx+1, '/', len(self.inc_vs), end='')
-            signal.alarm(5)
+            signal.alarm(2)
             try:
                 self.find_nodes(
                     start_node=self.g_small.graph.vertex(node),
@@ -169,13 +173,45 @@ class Recommender(BaseRecommender):
             else:
                 signal.alarm(0)
 
-        print('\nretrying for skipped nodes...')
+        print('\nretrying with 4 seconds...')
+        skipped_nodes2 = []
         for nidx, node in enumerate(skipped_nodes):
-            print('\r   ', nidx + 1, '/', len(skipped_nodes), end='')
+            print('\r   ', nidx+1, '/', len(skipped_nodes), end='')
+            signal.alarm(4)
+            try:
+                self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False)
+            except TimeoutException:
+                skipped_nodes2.append(node)
+            else:
+                signal.alarm(0)
+
+        print('\nretrying with 8 seconds...')
+        skipped_nodes3 = []
+        for nidx, node in enumerate(skipped_nodes2):
+            print('\r   ', nidx+1, '/', len(skipped_nodes2), end='')
+            signal.alarm(4)
+            try:
+                self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False)
+            except TimeoutException:
+                skipped_nodes3.append(node)
+            else:
+                signal.alarm(0)
+
+        print('\retrying with unlimited time...')
+        for nidx, node in enumerate(skipped_nodes3):
+            print('\r   ', nidx + 1, '/', len(skipped_nodes3), end='')
             self.find_nodes(
                 start_node=self.g_small.graph.vertex(node),
                 inc=inc, scc=scc,
                 do_debug=False)
+
+        print('\nwriting to disk...')
         write_pickle(fpath, self.node2out_component)
 
 
@@ -229,7 +265,6 @@ class ViewCountRecommender(Recommender):
 
     def recommend(self):
         self.get_reach()
-        pdb.set_trace()
         self.get_recommendation_candidates()
         print('adding recommendations...')
         for i in range(self.n_recs):
@@ -421,11 +456,11 @@ class TestRecommender(BaseRecommender):
 
 
 if __name__ == '__main__':
-    # vc_recommender = ViewCountRecommender('simple', n_recs=10)
-    # vc_recommender.recommend()
-
-    vc_recommender = ViewCountRecommender('it', n_recs=10)
+    vc_recommender = ViewCountRecommender('simple', n_recs=10)
     vc_recommender.recommend()
+
+    # vc_recommender = ViewCountRecommender('it', n_recs=10)
+    # vc_recommender.recommend()
 
 
     # st = TestRecommender()

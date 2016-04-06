@@ -16,12 +16,16 @@ if __name__ == '__main__':
     # wp.get_id_dict()
     # wp.crawl()
     # wp.crawl(recrawl_damaged=True)
-    wp.get_resolved_redirects()
-    wp.get_links('all')
+    # wp.get_resolved_redirects()
+    # wp.get_links(link_type='all', start=None, stop=81)
+    # wp.get_links(link_type='all', start=81, stop=162)
+    # wp.get_links(link_type='all', start=162, stop=243)
+    # wp.get_links(link_type='all', start=243, stop=None)
+    wp.combine_link_chunks()
     # wp.get_links('divs_tables')
     wp.correct_bug()
     wp.cleanup()
-
+    #
     for n_val in [
         1,
         'first_p',

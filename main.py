@@ -132,7 +132,8 @@ class Wikipedia(object):
             for k, v in zip(df['title'], df['redirects_to']):
                 if v not in self.title2id:
                     title2redirect[k] = False
-                title2redirect[k] = v
+                else:
+                    title2redirect[k] = v
         print()
 
         with open(os.path.join(self.data_dir, 'title2redirect.obj'), 'wb')\
@@ -546,8 +547,8 @@ class Graph(object):
         self.load_stats()
         if self.N == 1:
             self.stats['comp_stats'] = self.cycle_components()
-        # self.stats['bow_tie'] = self.bow_tie()
-        # self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        self.stats['bow_tie'] = self.bow_tie()
+        self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         self.save_stats()
 
     def print_stats(self):
@@ -629,8 +630,8 @@ class Graph(object):
 
     def cycle_components(self):
         print('cycle_components()')
-        name2node = {self.graph.vp['title'][n]: n for n in self.graph.vertices()}
-        pdb.set_trace()
+        # name2node = {self.graph.vp['title'][n]: n for n in self.graph.vertices()}
+        # pdb.set_trace()
         print('    get number of vertices per component')
         component, histogram = gt.label_components(self.graph)
         comp2verts = {i: list() for i in range(len(histogram))}
