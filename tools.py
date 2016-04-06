@@ -77,17 +77,18 @@ def url_unescape(title):
 
 def export_bowtie_dicts():
     from main import Graph
+    bt_labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
     wikipedias = [
-        'simple',
+        # 'simple',
 
-        # 'it',
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'ja',
-        # 'nl',
+        'it',
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'ja',
+        'nl',
     ]
 
     n_vals = [
@@ -104,10 +105,18 @@ def export_bowtie_dicts():
         d = {}
         for n_val in n_vals:
             print('   ', n_val)
-            g = Graph(data_dir=os.path.join('data', wp + 'wiki'), fname='links',
-                      use_sample=False, refresh=False, N=n_val)
+            g = Graph(wiki_code=wp, N=n_val)
             g.load_graph(refresh=False)
             d[n_val] = {g.graph.vp['name'][v]: g.graph.vp['bowtie'][v]
                         for v in g.graph.vertices()}
+            d_tmp = {l: 0 for l in bt_labels}
+            for v in g.graph.vertices():
+                d_tmp[g.graph.vp['bowtie'][v]] += 1
+            for l in bt_labels:
+                print('       ', l, d_tmp[l])
         fname = 'id2bowtie-' + wp + '.obj'
         write_pickle(os.path.join(pageview_dir_filtered, fname), d)
+
+
+if __name__ == '__main__':
+    export_bowtie_dicts()

@@ -23,7 +23,9 @@ if __name__ == '__main__':
     # wp.get_links(link_type='all', start=600, stop=700)
     # wp.get_links(link_type='all', start=700, stop=800)
     # wp.get_links(link_type='all', start=800, stop=900)
-    wp.get_links(link_type='all', start=900, stop=1000)
+    # wp.get_links(link_type='all', start=900, stop=1000)
+    # wp.get_links(link_type='all', start=1000, stop=1050)
+    wp.get_links(link_type='all', start=1050, stop=1100)
     # ---
 
     # wp.get_links('divs_tables')

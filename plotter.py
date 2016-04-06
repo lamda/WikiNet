@@ -628,11 +628,11 @@ if __name__ == '__main__':
             pass
 
     for wp in [
-        'simple',
+        # 'simple',
 
         # 'de',
         # 'en',
-        # 'es',
+        'es',
         # 'fr',
         # 'ru',
         # 'it',

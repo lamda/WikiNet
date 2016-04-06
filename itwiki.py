@@ -49,11 +49,11 @@ if __name__ == '__main__':
     # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1790000-1800000.obj'))
 
     # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1860000-1870000.obj'))
-    wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1760000-1770000.obj'))
-    wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1270000-1280000.obj'))
-    wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '300000-310000.obj'))
-    wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1740000-1750000.obj'))
-    wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '270000-280000.obj'))
+    # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1760000-1770000.obj'))
+    # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1270000-1280000.obj'))
+    # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '300000-310000.obj'))
+    # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1740000-1750000.obj'))
+    # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '270000-280000.obj'))
 
     # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '680000-690000.obj'))
     # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1200000-1210000.obj'))
@@ -67,30 +67,32 @@ if __name__ == '__main__':
     # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '620000-630000.obj'))
     # wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '780000-790000.obj'))
 
+    wp.get_link_chunk_all(file_path=os.path.join('data', 'itwiki', 'html', '1120000-1130000.obj'))
+
     # wp.get_links(link_type='all', start=91, stop=108)
     # wp.get_links(link_type='all', start=108, stop=125)
     # wp.get_links(link_type='all', start=125, stop=142)
     # wp.get_links(link_type='all', start=142, stop=158)
     # wp.get_links(link_type='all', start=158, stop=174)
     # wp.get_links(link_type='all', start=174, stop=None)
-    # wp.combine_link_chunks()
+    wp.combine_link_chunks()
     # wp.get_links('divs_tables')
-    # wp.correct_bug()
-    # wp.cleanup()
+    wp.correct_bug()
+    wp.cleanup()
     #
-    # for n_val in [
-    #     1,
-    #     'first_p',
-    #     'lead',
-    #     'infobox',
-    #     'all',
-    # ]:
-    #     print('---------------- N =', n_val, '----------------')
-    #     g = Graph(wiki_code=WIKI_CODE, N=n_val)
-    #     g.load_graph()
-    #     g.compute_stats()
-    #     # g.update_stats()
-    #     g.print_stats()
+    for n_val in [
+        1,
+        'first_p',
+        'lead',
+        'infobox',
+        'all',
+    ]:
+        print('---------------- N =', n_val, '----------------')
+        g = Graph(wiki_code=WIKI_CODE, N=n_val)
+        g.load_graph()
+        g.compute_stats()
+        # g.update_stats()
+        g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))
