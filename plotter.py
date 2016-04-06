@@ -70,7 +70,8 @@ class Plotter(object):
         if 'cc' in to_plot:
             self.plot('cc')
         if 'recommendations' in to_plot:
-            self.plot_recommendations()
+            self.plot_recommendations_scc_size()
+            self.plot_recommendations_vc()
         if 'ecc' in to_plot:
             self.plot_ecc()
         if 'pls' in to_plot:
@@ -115,6 +116,9 @@ class Plotter(object):
                 'Savoir': 'Knowledge',
                 'Âme': 'Soul',
                 'Principe (philosophie)': 'Principle',
+                'Liaison (mécanique)': 'Linkage (mechanical)',
+                'Assemblage mécanique': 'Assembly',
+                'Mécanisme': 'Mechanism (engineering)',
 
                 # es
                 'Psicología': 'Psychology',
@@ -195,7 +199,11 @@ class Plotter(object):
                 'トルコ': 'Turkey',
                 '西アジア': 'Western Asia',
                 'アジア': 'Asia',
-                'アッシリア': 'Assyria'
+                'アッシリア': 'Assyria',
+                
+                'トルコ語': 'Turkish language',
+                'アゼルバイジャン語': 'Azerbaijani language',
+                
             }
 
             try:
@@ -209,9 +217,9 @@ class Plotter(object):
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         with io.open(fpath, 'a', encoding='utf-8') as outfile:
             text = self.label2language[self.label[:-4]] + ' & ' + self.label[:-4]
-            print(text)
+            # print(text)
             outfile.write(text)
-            for cidx, cstat in enumerate(cstats[:10]):
+            for cidx, cstat in enumerate(cstats[:3]):
                 cover = 100 * cstat['incomp_size'] / no_articles
                 names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
@@ -227,10 +235,10 @@ class Plotter(object):
                     text = ' & '
                 text += ' & %.1f\\%% & %s & %s \\\\\n' %\
                         (cover, names_translated, names)
-                print(text, end='')
+                # print(text, end='')
                 outfile.write(text)
             text = '\\hline\n'
-            print(text, end='')
+            # print(text, end='')
             outfile.write(text)
 
     def print_link_counts(self):
@@ -281,38 +289,53 @@ class Plotter(object):
             plt.savefig(fpath + ftype)
         plt.close()
 
-    def plot_recommendations(self):
-        for prop in [
-            'recs_vc_based_vc_ratio',
-            'recs_vc_based_scc_size',
-            # 'recs_scc_based_vc_ratio',
-            # 'recs_scc_based_scc_size',
+    def plot_recommendations_scc_size(self):
+        fig, ax = plt.subplots(1, figsize=(6, 3))
+        for pidx, prop, lab in [
+            (0, 'recs_scc_based_scc_size', 'SCC-based'),
+            (1, 'recs_vc_based_scc_size', 'VC-based'),
         ]:
-            fig, ax = plt.subplots(1, figsize=(6, 3))
             bar_vals = self.graph_data['first_p'][prop]
+            # gs = self.graph_data['first_p']['graph_size']
+            # bar_vals = [100 * bv / gs for bv in bar_vals]
             x_vals = range(len(bar_vals))
-            ax.plot(x_vals, bar_vals)
+            ax.plot(x_vals, bar_vals, label=lab, color=self.colors[pidx])
 
-            ax.set_xlim(-0.5, len(self.graph_order) - 0.5)
-            ax.set_xticks([x - 0.25 for x in x_vals])
-            for tic in ax.xaxis.get_major_ticks():
-                tic.tick1On = tic.tick2On = False
-            labels = [g for g in self.graph_order]
-            ax.set_xticklabels(labels, rotation='-50', ha='left')
+        ylabel = 'SCC size'
+        ax.set_xlabel('# recommendations added')
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(0, len(bar_vals) + 1)
+        # ax.set_ylim(0, 101)
+        plt.legend()
 
-            if 'vc_ratio' in prop:
-                ylabel = 'View Count Ratio'
-            elif 'scc_size' in prop:
-                ylabel = 'SCC size'
-            ax.set_ylabel(ylabel)
-            ax.set_xlim(0, 101)
-            ax.set_ylim(0, 16)
+        plt.tight_layout()
+        fpath = os.path.join(self.plot_folder, self.label + '_recs_scc')
+        for ftype in self.plot_file_types:
+            plt.savefig(fpath + ftype)
+        plt.close()
+        
+    def plot_recommendations_vc(self):
+        fig, ax = plt.subplots(1, figsize=(6, 3))
+        for pidx, inc, scc, lab in [
+            (0, 'recs_scc_based_vc_inc', 'recs_scc_based_vc_scc', 'SCC-based'),
+            (1, 'recs_vc_based_vc_inc', 'recs_vc_based_vc_scc', 'VC-based'),
+        ]:
+            bar_vals = self.graph_data['first_p'][scc]
+            x_vals = range(len(bar_vals))
+            ax.plot(x_vals, bar_vals, label=lab, color=self.colors[pidx])
 
-            plt.tight_layout()
-            fpath = os.path.join(self.plot_folder, self.label + '_' + prop)
-            for ftype in self.plot_file_types:
-                plt.savefig(fpath + ftype)
-            plt.close()
+        ylabel = 'view count sum in SCC'
+        ax.set_xlabel('# recommendations added')
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(0, len(bar_vals) + 1)
+        # ax.set_ylim(0, 101)
+        plt.legend()
+
+        plt.tight_layout()
+        fpath = os.path.join(self.plot_folder, self.label + '_recs_vc')
+        for ftype in self.plot_file_types:
+            plt.savefig(fpath + ftype)
+        plt.close()        
 
     def plot_ecc(self):
         # # plot_ecc_legend
@@ -609,17 +632,17 @@ if __name__ == '__main__':
         'infobox',
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
         # 'cp_size',
         # 'cc',
-        # 'recommendations',
+        'recommendations',
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
+        # 'bow_tie_alluvial',
     ]
     if 'cycles' in to_plot:
         try:
@@ -628,12 +651,12 @@ if __name__ == '__main__':
             pass
 
     for wp in [
-        # 'simple',
+        'simple',
 
-        # 'de',
         # 'en',
-        'es',
+        # 'de',
         # 'fr',
+        # 'es',
         # 'ru',
         # 'it',
         # 'ja',

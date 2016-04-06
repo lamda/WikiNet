@@ -89,13 +89,16 @@ class Recommender(BaseRecommender):
         BaseRecommender.__init__(self)
         self.wiki_code = wiki_code
         self.wiki_name = wiki_code + 'wiki'
-        print(self.wiki_name)
+        print(self.wiki_name, n_recs, '<--------')
         self.small_n, self.large_n = small_n, large_n
         self.g_small, self.g_large = None, None
         self.n_recs = n_recs
-        self.vc_ratios, self.scc_sizes = [], []
+        self.scc_sizes, self.inc_sum_vcs, self.scc_sum_vcs = [], [], []
 
+        print('loading graphs...')
         self.load_graphs()
+
+        print('loading id2views...')
         fpath = os.path.join('data', 'pageviews', 'filtered')
         fname = 'id2views-' + self.wiki_code + '.obj'
         self.id2views = read_pickle(os.path.join(fpath, fname))
@@ -107,9 +110,7 @@ class Recommender(BaseRecommender):
                                            directed=True)
 
         self.scc_sum_vc, self.inc_sum_vc = 0, 0
-        scc_size, vc_ratio = self.get_stats()
-        self.scc_sizes = [scc_size]
-        self.vc_ratios = [vc_ratio]
+        self.c_inc2c_scc = collections.defaultdict(set)
 
     def get_stats(self):
         # get SCC and IN
@@ -129,110 +130,133 @@ class Recommender(BaseRecommender):
         self.inc = set([self.g_small.graph.vp['name'][n] for n in self.inc])
         self.scc = set([self.g_small.graph.vp['name'][n] for n in self.scc])
 
-        # get view count ratio
+        # get view counts
         self.scc_sum_vc = sum(self.id2views[v] for v in self.scc)
         self.inc_sum_vc = sum(self.id2views[v] for v in self.inc)
-        vc_ratio = (self.scc_sum_vc / len(self.scc)) /\
-                   (self.inc_sum_vc / len(self.inc))
 
-        return scc_size, vc_ratio
+        return scc_size, self.inc_sum_vc, self.scc_sum_vc
 
-    def load_graphs(self):
-        print('loading graphs...')
+    def load_graphs(self, skip_large=False):
         self.g_small = Graph(wiki_code=self.wiki_code, N=self.small_n)
         self.g_small.load_graph()
-        self.g_large = Graph(wiki_code=self.wiki_code, N=self.large_n)
-        self.g_large.load_graph()
+        if not skip_large:
+            self.g_large = Graph(wiki_code=self.wiki_code, N=self.large_n)
+            self.g_large.load_graph()
+
+    def reset(self):
+        print('loading graph...')
+        self.load_graphs(skip_large=True)
+        print('getting stats...')
+        self.scc_sizes, self.inc_sum_vcs, self.scc_sum_vcs = [], [], []
+        self.scc_sum_vc, self.inc_sum_vc = 0, 0
+        scc_size, inc_sum_vc, scc_sum_vc = self.get_stats()
+        self.scc_sizes = [scc_size]
+        self.inc_sum_vcs = [inc_sum_vc]
+        self.scc_sum_vcs = [scc_sum_vc]
+        self.c_inc2c_scc = collections.defaultdict(set)
 
     def get_reach(self, inc=None, scc=None):
         fpath = os.path.join('data', self.wiki_name, 'reach.obj')
         try:
             self.node2out_component = read_pickle(fpath)
-            print('reach loaded!')
+            print('reach loaded from disk')
         except IOError:
-            pass
-        print('getting reach...')
-        if inc is None:
-            inc = self.inc_vs
-        if scc is None:
-            scc = self.scc_vs
+            print('getting reach...')
+            if inc is None:
+                inc = self.inc_vs
+            if scc is None:
+                scc = self.scc_vs
 
-        print('got a total of', len(self.inc_vs), 'nodes to compute')
-        print('\ntrying with 4...')
-        skipped_nodes = []
-        # via http://stackoverflow.com/questions/25027122
-        for nidx, node in enumerate(self.inc_vs):
-            print('\r   ', nidx+1, '/', len(self.inc_vs),
-                  len(self.node2out_component), end='')
-            result = self.find_nodes(
-                start_node=self.g_small.graph.vertex(node),
-                inc=inc, scc=scc,
-                do_debug=False,
-                limit=4
-            )
-            if not result:
-                skipped_nodes.append(node)
+            print('got a total of', len(self.inc_vs), 'nodes to compute')
+            print('\ntrying with 4...')
+            skipped_nodes = []
+            # via http://stackoverflow.com/questions/25027122
+            for nidx, node in enumerate(self.inc_vs):
+                print('\r   ', nidx+1, '/', len(self.inc_vs),
+                      len(self.node2out_component), end='')
+                result = self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False,
+                    limit=4
+                )
+                if not result:
+                    skipped_nodes.append(node)
 
-        print('\nretrying with 8...')
-        skipped_nodes2 = []
-        for nidx, node in enumerate(skipped_nodes):
-            print('\r   ', nidx+1, '/', len(skipped_nodes),
-                  len(self.node2out_component), end='')
-            result = self.find_nodes(
-                start_node=self.g_small.graph.vertex(node),
-                inc=inc, scc=scc,
-                do_debug=False,
-                limit=8
-            )
-            if not result:
-                skipped_nodes2.append(node)
+            print('\nretrying with 8...')
+            skipped_nodes2 = []
+            for nidx, node in enumerate(skipped_nodes):
+                print('\r   ', nidx+1, '/', len(skipped_nodes),
+                      len(self.node2out_component), end='')
+                result = self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False,
+                    limit=8
+                )
+                if not result:
+                    skipped_nodes2.append(node)
 
-        print('\nretrying with 16...')
-        skipped_nodes3 = []
-        for nidx, node in enumerate(skipped_nodes2):
-            print('\r   ', nidx+1, '/', len(skipped_nodes2),
-                  len(self.node2out_component), end='')
-            result = self.find_nodes(
-                start_node=self.g_small.graph.vertex(node),
-                inc=inc, scc=scc,
-                do_debug=False,
-                limit=16
-            )
-            if not result:
-                skipped_nodes3.append(node)
+            print('\nretrying with 16...')
+            skipped_nodes3 = []
+            for nidx, node in enumerate(skipped_nodes2):
+                print('\r   ', nidx+1, '/', len(skipped_nodes2),
+                      len(self.node2out_component), end='')
+                result = self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False,
+                    limit=16
+                )
+                if not result:
+                    skipped_nodes3.append(node)
 
-        print('\retrying with unlimited...')
-        for nidx, node in enumerate(skipped_nodes3):
-            print('\r   ', nidx + 1, '/', len(skipped_nodes3),
-                  len(self.node2out_component), end='')
-            self.find_nodes(
-                start_node=self.g_small.graph.vertex(node),
-                inc=inc, scc=scc,
-                do_debug=False,
-                limit=None
-            )
+            print('\retrying with unlimited...')
+            for nidx, node in enumerate(skipped_nodes3):
+                print('\r   ', nidx + 1, '/', len(skipped_nodes3),
+                      len(self.node2out_component), end='')
+                self.find_nodes(
+                    start_node=self.g_small.graph.vertex(node),
+                    inc=inc, scc=scc,
+                    do_debug=False,
+                    limit=None
+                )
 
-        # convert to Wikipedia IDs
-        d = {}
-        for node, reach in self.node2out_component.items():
-            d[self.g_small.graph.vp['name'][node]] = set(
-                self.g_small.graph.vp['name'][r] for r in reach
-            )
-        self.node2out_component = d
+            print('\nconverting to Wikipedia IDs...')
+            d = {}
+            for nidx, (node, reach) in enumerate(self.node2out_component.iteritems()):
+                print('\r   ', nidx+1, '/', len(self.node2out_component), end='')
+                d[self.g_small.graph.vp['name'][node]] = set(
+                    self.g_small.graph.vp['name'][r] for r in reach
+                )
+            self.node2out_component = d
 
-        print('\nwriting to disk...')
-        write_pickle(fpath, self.node2out_component)
+            print('\nwriting to disk...')
+            write_pickle(fpath, self.node2out_component)
 
+    def get_next_recommendation_scc_based(self):
+        c_inc_max, val_max = -1, -1
+        for c_inc in self.c_inc2c_scc:
+            reach = len(self.node2out_component[c_inc])
+            if reach > val_max:
+                c_inc_max = c_inc
+                val_max = reach
+        return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)[0]
 
-class SccSizeRecommender(Recommender):
-    def __init__(self, wiki_code, small_n='first_p', large_n='lead', n_recs=100):
-        Recommender.__init__(self, wiki_code, small_n, large_n, n_recs)
-        self.c_inc2c_scc = collections.defaultdict(set())
+    def get_next_recommendation_vc_based(self):
+        c_inc_max, val_max = -1, -1
+        for c_inc in self.c_inc2c_scc:
+            val = sum(
+                self.id2views[n] for n in self.node2out_component[c_inc])
+            if val > val_max:
+                c_inc_max = c_inc
+                val_max = val
+        return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)[0]
 
     def get_recommendation_candidates(self):
         print('getting recommendation candidates...')
         for idx, wpid in enumerate(self.scc):
-            print('\r   ', idx+1, '/', len(self.scc), end='')
+            print('\r   ', idx + 1, '/', len(self.scc), end='')
             node_small = self.wid2node_small[wpid]
             node_large = self.wid2node_large[wpid]
             nbs_small = [nb for nb in node_small.out_neighbours()]
@@ -243,62 +267,59 @@ class SccSizeRecommender(Recommender):
             candidates = set(c for c in candidates if c in self.inc)
             for cand in candidates:
                 self.c_inc2c_scc[cand].add(wpid)
+        print()
 
-    def get_recommendation_candidate(self):
-        c_inc_max, val_max = -1, -1
-        for c_inc in self.c_inc2c_scc:
-            reach = len(self.node2out_component[c_inc])
-            if reach > val_max:
-                c_inc_max = c_inc
-                val_max = reach
-        return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)
-
-    def add_recommendation(self):
+    def add_recommendation(self, rec_type):
         # add the recommendation
-        inc_node, scc_node = self.get_recommendation_candidate()
+        if rec_type == 'scc_based':
+            inc_node, scc_node = self.get_next_recommendation_scc_based()
+        elif rec_type == 'vc_based':
+            inc_node, scc_node = self.get_next_recommendation_vc_based()
+        else:
+            print('NOT SUPPORTED')
+            pdb.set_trace()
         self.g_small.graph.add_edge(self.wid2node_small[scc_node],
                                     self.wid2node_small[inc_node])
 
         added_nodes = self.node2out_component[inc_node]
 
         # compute the effects of adding it
-        vc_change = 0
-        for node in added_nodes:
-            self.scc.add(node)
-            self.inc.remove(node)
-            vc_change += self.id2views[node]
+        self.scc |= added_nodes
+        self.inc -= added_nodes
+        vc_change = sum(self.id2views[n] for n in added_nodes)
         self.scc_sizes.append(self.scc_sizes[-1] + len(added_nodes))
         self.scc_sum_vc += vc_change
         self.inc_sum_vc -= vc_change
-        vc_ratio = (self.scc_sum_vc / len(self.scc)) /\
-                   (self.inc_sum_vc / len(self.inc))
-        self.vc_ratios.append(vc_ratio)
+        self.inc_sum_vcs.append(self.inc_sum_vc)
+        self.scc_sum_vcs.append(self.scc_sum_vc)
 
         # update c_inc2c_scc
         for node in added_nodes:
-            del self.c_inc2c_scc[node]
+            try:
+                del self.c_inc2c_scc[node]
+            except KeyError:
+                pass
 
         # update node2out_component
         for node in added_nodes:
             del self.node2out_component[node]
         for node, reach in self.node2out_component.items():
-            intersection = reach - added_nodes
-            if not intersection:
-                del self.node2out_component[node]
-            else:
-                self.node2out_component[node] = intersection
+                self.node2out_component[node] -= added_nodes
 
-    def recommend(self):
+    def recommend(self, rec_type):
+        self.reset()
         self.get_reach()
         self.get_recommendation_candidates()
         print('adding recommendations...')
         for i in range(self.n_recs):
             print('\r   ', i+1, '/', self.n_recs, end='')
-            self.add_recommendation()
+            self.add_recommendation(rec_type=rec_type)
         print()
 
-        self.g_small.stats['recs_vc_based_vc_ratio'] = self.vc_ratios
-        self.g_small.stats['recs_vc_based_scc_size'] = self.scc_sizes
+        self.g_small.load_stats()
+        self.g_small.stats['recs_' + rec_type + '_vc_inc'] = self.inc_sum_vcs
+        self.g_small.stats['recs_' + rec_type + '_vc_scc'] = self.scc_sum_vcs
+        self.g_small.stats['recs_' + rec_type + '_scc_size'] = self.scc_sizes
         self.g_small.save_stats()
 
 
@@ -573,11 +594,15 @@ class TestRecommender(BaseRecommender):
 
 
 if __name__ == '__main__':
-    vc_recommender = SccSizeRecommender('simple', n_recs=10)
-    vc_recommender.recommend()
-
-    # vc_recommender = SccSizeRecommender('it', n_recs=10)
-    # vc_recommender.recommend()
+    for wp in [
+        # 'simple',
+        # 'en',
+        # 'de',
+        'it',
+    ]:
+        r = Recommender(wp, n_recs=500)
+        r.recommend(rec_type='scc_based')
+        r.recommend(rec_type='vc_based')
 
     # st = TestRecommender()
     # st.test_node2reach()

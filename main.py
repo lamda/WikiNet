@@ -545,9 +545,12 @@ class Graph(object):
     def update_stats(self):
         print('updating stats...')
         self.load_stats()
-        if self.N == 1:
-            self.stats['comp_stats'] = self.cycle_components()
-        self.stats['bow_tie'] = self.bow_tie()
+        # self.stats['graph_size'], self.stats['recommenders'],\
+        #     self.stats['outdegree_av'],\
+        #     self.stats['outdegree_median'] = self.basic_stats()
+        # if self.N == 1:
+        #     self.stats['comp_stats'] = self.cycle_components()
+        # self.stats['bow_tie'] = self.bow_tie()
         self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         self.save_stats()
 
