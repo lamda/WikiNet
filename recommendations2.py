@@ -30,8 +30,9 @@ class BaseRecommender(object):
             debug = lambda *text: None
 
         debug('\nstarting from', int(start_node), '---------------')
-        self.node2out_component[int(start_node)] = set([int(start_node)])
+        self.node2out_component[int(start_node)] = {int(start_node)}
         visited = [start_node]
+        reached = set()
         stack = [(int(start_node), start_node.out_neighbours())]
         while stack:
             if limit and len(stack) > limit:
@@ -47,6 +48,11 @@ class BaseRecommender(object):
                 stack.pop()
                 visited.pop()
                 continue
+            if nb in reached:
+                debug('    NB already reached')
+                continue
+            else:
+                reached.add(nb)
             if nb in scc:
                 debug('    nb in SCC')
                 visited.append(nb)
@@ -206,14 +212,22 @@ class Recommender(BaseRecommender):
                 limit=None
             )
 
+        # convert to Wikipedia IDs
+        d = {}
+        for node, reach in self.node2out_component.items():
+            d[self.g_small.graph.vp['name'][node]] = set(
+                self.g_small.graph.vp['name'][r] for r in reach
+            )
+        self.node2out_component = d
+
         print('\nwriting to disk...')
         write_pickle(fpath, self.node2out_component)
 
 
-class ViewCountRecommender(Recommender):
+class SccSizeRecommender(Recommender):
     def __init__(self, wiki_code, small_n='first_p', large_n='lead', n_recs=100):
         Recommender.__init__(self, wiki_code, small_n, large_n, n_recs)
-        self.scc_inc_vc = []
+        self.c_inc2c_scc = collections.defaultdict(set())
 
     def get_recommendation_candidates(self):
         print('getting recommendation candidates...')
@@ -228,35 +242,51 @@ class ViewCountRecommender(Recommender):
             candidates = nbs_large - nbs_small
             candidates = set(c for c in candidates if c in self.inc)
             for cand in candidates:
-                self.scc_inc_vc.append((wpid, cand, self.id2views[cand]))
-        print()
-        self.scc_inc_vc.sort(key=operator.itemgetter(2))
+                self.c_inc2c_scc[cand].add(wpid)
+
+    def get_recommendation_candidate(self):
+        c_inc_max, val_max = -1, -1
+        for c_inc in self.c_inc2c_scc:
+            reach = len(self.node2out_component[c_inc])
+            if reach > val_max:
+                c_inc_max = c_inc
+                val_max = reach
+        return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)
 
     def add_recommendation(self):
         # add the recommendation
-        scc_node, inc_node, vc = -1, random.sample(self.scc, 1)[0], -1
-        while inc_node in self.scc:
-            scc_node, inc_node, vc = self.scc_inc_vc.pop()
+        inc_node, scc_node = self.get_recommendation_candidate()
         self.g_small.graph.add_edge(self.wid2node_small[scc_node],
                                     self.wid2node_small[inc_node])
 
+        added_nodes = self.node2out_component[inc_node]
+
         # compute the effects of adding it
         vc_change = 0
-        scc_change = 0
-        # TODO: scc_node and inc_node are wpids, self.node2out_component saves graph vertex ids
-        pdb.set_trace()
-        for node in self.node2out_component[inc_node]:
-            if node not in self.scc:
-                self.scc.add(node)
-                self.inc.remove(node)
-                vc_change += self.id2views[node]
-                scc_change += 1
-        self.scc_sizes.append(self.scc_sizes[-1] + scc_change)
+        for node in added_nodes:
+            self.scc.add(node)
+            self.inc.remove(node)
+            vc_change += self.id2views[node]
+        self.scc_sizes.append(self.scc_sizes[-1] + len(added_nodes))
         self.scc_sum_vc += vc_change
         self.inc_sum_vc -= vc_change
         vc_ratio = (self.scc_sum_vc / len(self.scc)) /\
                    (self.inc_sum_vc / len(self.inc))
         self.vc_ratios.append(vc_ratio)
+
+        # update c_inc2c_scc
+        for node in added_nodes:
+            del self.c_inc2c_scc[node]
+
+        # update node2out_component
+        for node in added_nodes:
+            del self.node2out_component[node]
+        for node, reach in self.node2out_component.items():
+            intersection = reach - added_nodes
+            if not intersection:
+                del self.node2out_component[node]
+            else:
+                self.node2out_component[node] = intersection
 
     def recommend(self):
         self.get_reach()
@@ -541,20 +571,21 @@ class TestRecommender(BaseRecommender):
             9: {9},
         }
 
+
 if __name__ == '__main__':
-    # vc_recommender = ViewCountRecommender('simple', n_recs=10)
+    vc_recommender = SccSizeRecommender('simple', n_recs=10)
+    vc_recommender.recommend()
+
+    # vc_recommender = SccSizeRecommender('it', n_recs=10)
     # vc_recommender.recommend()
 
-    # vc_recommender = ViewCountRecommender('it', n_recs=10)
-    # vc_recommender.recommend()
-
-    st = TestRecommender()
-    st.test_node2reach()
-    st.test_node2reach2()
-    st.test_node2reach3()
-    st.test_node2reach4()
-    st.test_node2reach5()
-    st.test_node2reach6()
+    # st = TestRecommender()
+    # st.test_node2reach()
+    # st.test_node2reach2()
+    # st.test_node2reach3()
+    # st.test_node2reach4()
+    # st.test_node2reach5()
+    # st.test_node2reach6()
 
     # wikipedias = [
     #     'simple',

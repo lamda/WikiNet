@@ -81,14 +81,14 @@ def export_bowtie_dicts():
     wikipedias = [
         # 'simple',
 
-        'it',
+        # 'it',
+        # 'de',
+        # 'fr',
+        # 'es',
+        # 'ja',
+        # 'nl',
+        # 'ru',
         'en',
-        'de',
-        'fr',
-        'es',
-        'ru',
-        'ja',
-        'nl',
     ]
 
     n_vals = [
