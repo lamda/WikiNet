@@ -85,10 +85,11 @@ class BaseRecommender(object):
 
 class Recommender(BaseRecommender):
     def __init__(self, wiki_code, small_n='first_p', large_n='lead',
-                 n_recs=100):
+                 n_recs=100, verbose=False):
         BaseRecommender.__init__(self)
         self.wiki_code = wiki_code
         self.wiki_name = wiki_code + 'wiki'
+        self.verbose = verbose
         print(self.wiki_name, n_recs, '<--------')
         self.small_n, self.large_n = small_n, large_n
         self.g_small, self.g_large = None, None
@@ -111,6 +112,7 @@ class Recommender(BaseRecommender):
 
         self.scc_sum_vc, self.inc_sum_vc = 0, 0
         self.c_inc2c_scc = collections.defaultdict(set)
+        self.added_edges = []
 
     def get_stats(self):
         # get SCC and IN
@@ -154,6 +156,7 @@ class Recommender(BaseRecommender):
         self.inc_sum_vcs = [inc_sum_vc]
         self.scc_sum_vcs = [scc_sum_vc]
         self.c_inc2c_scc = collections.defaultdict(set)
+        self.added_edges = []
 
     def get_reach(self, inc=None, scc=None):
         fpath = os.path.join('data', self.wiki_name, 'reach.obj')
@@ -241,6 +244,13 @@ class Recommender(BaseRecommender):
             if reach > val_max:
                 c_inc_max = c_inc
                 val_max = reach
+        if self.verbose:
+            inc_graph_node = self.wid2node_small[c_inc_max]
+            print('%s (%d)' % (self.g_small.graph.vp['title'][inc_graph_node], c_inc_max))
+            for scc_node in self.c_inc2c_scc[c_inc_max]:
+                scc_graph_node = self.wid2node_small[scc_node]
+                print('    %s (%d)' % (self.g_small.graph.vp['title'][scc_graph_node], scc_node))
+
         return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)[0]
 
     def get_next_recommendation_vc_based(self):
@@ -251,23 +261,41 @@ class Recommender(BaseRecommender):
             if val > val_max:
                 c_inc_max = c_inc
                 val_max = val
+        if self.verbose:
+            inc_graph_node = self.wid2node_small[c_inc_max]
+            print('        %s (%d)' % (
+                self.g_small.graph.vp['title'][inc_graph_node], c_inc_max)
+            )
+            for scc_node in self.c_inc2c_scc[c_inc_max]:
+                scc_graph_node = self.wid2node_small[scc_node]
+                print('            %s (%d)' % (
+                    self.g_small.graph.vp['title'][scc_graph_node], scc_node)
+                )
         return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)[0]
 
     def get_recommendation_candidates(self):
-        print('getting recommendation candidates...')
-        for idx, wpid in enumerate(self.scc):
-            print('\r   ', idx + 1, '/', len(self.scc), end='')
-            node_small = self.wid2node_small[wpid]
-            node_large = self.wid2node_large[wpid]
-            nbs_small = [nb for nb in node_small.out_neighbours()]
-            nbs_small = set(self.g_small.graph.vp['name'][n] for n in nbs_small)
-            nbs_large = [nb for nb in node_large.out_neighbours()]
-            nbs_large = set(self.g_large.graph.vp['name'][n] for n in nbs_large)
-            candidates = nbs_large - nbs_small
-            candidates = set(c for c in candidates if c in self.inc)
-            for cand in candidates:
-                self.c_inc2c_scc[cand].add(wpid)
-        print()
+        fpath = os.path.join('data', self.wiki_name, 'candidates.obj')
+        try:
+            self.c_inc2c_scc = read_pickle(fpath)
+            print('recommendation candidates loaded from disk')
+        except IOError:
+            print('getting recommendation candidates...')
+            for idx, wpid in enumerate(self.scc):
+                print('\r   ', idx + 1, '/', len(self.scc), end='')
+                node_small = self.wid2node_small[wpid]
+                node_large = self.wid2node_large[wpid]
+                nbs_small = [nb for nb in node_small.out_neighbours()]
+                nbs_small = set(self.g_small.graph.vp['name'][n] for n in nbs_small)
+                nbs_large = [nb for nb in node_large.out_neighbours()]
+                nbs_large = set(self.g_large.graph.vp['name'][n] for n in nbs_large)
+                candidates = nbs_large - nbs_small
+                candidates = set(c for c in candidates if c in self.inc)
+                for cand in candidates:
+                    self.c_inc2c_scc[cand].add(wpid)
+            print()
+
+            print('\nwriting to disk...')
+            write_pickle(fpath, self.c_inc2c_scc)
 
     def add_recommendation(self, rec_type):
         # add the recommendation
@@ -278,8 +306,13 @@ class Recommender(BaseRecommender):
         else:
             print('NOT SUPPORTED')
             pdb.set_trace()
-        self.g_small.graph.add_edge(self.wid2node_small[scc_node],
-                                    self.wid2node_small[inc_node])
+        scc_graph_node = self.wid2node_small[scc_node]
+        inc_graph_node = self.wid2node_small[inc_node]
+        self.g_small.graph.add_edge(scc_graph_node, inc_graph_node)
+        self.added_edges.append((
+                self.g_small.graph.vp['title'][scc_graph_node], scc_node,
+                self.g_small.graph.vp['title'][inc_graph_node], inc_node
+            ))
 
         added_nodes = self.node2out_component[inc_node]
 
@@ -312,7 +345,10 @@ class Recommender(BaseRecommender):
         self.get_recommendation_candidates()
         print('adding recommendations...')
         for i in range(self.n_recs):
-            print('\r   ', i+1, '/', self.n_recs, end='')
+            if self.verbose:
+                print('   ', i+1, '/', self.n_recs)
+            else:
+                print('\r   ', i+1, '/', self.n_recs, end='')
             self.add_recommendation(rec_type=rec_type)
         print()
 
@@ -320,6 +356,7 @@ class Recommender(BaseRecommender):
         self.g_small.stats['recs_' + rec_type + '_vc_inc'] = self.inc_sum_vcs
         self.g_small.stats['recs_' + rec_type + '_vc_scc'] = self.scc_sum_vcs
         self.g_small.stats['recs_' + rec_type + '_scc_size'] = self.scc_sizes
+        self.g_small.stats['recs_' + rec_type + '_edges'] = self.added_edges
         self.g_small.save_stats()
 
 
@@ -597,10 +634,10 @@ if __name__ == '__main__':
     for wp in [
         # 'simple',
         # 'en',
-        # 'de',
-        'it',
+        'de',
+        # 'it',
     ]:
-        r = Recommender(wp, n_recs=500)
+        r = Recommender(wp, n_recs=10, verbose=True)
         r.recommend(rec_type='scc_based')
         r.recommend(rec_type='vc_based')
 

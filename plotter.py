@@ -80,6 +80,8 @@ class Plotter(object):
             self.plot_bow_tie()
         if 'bow_tie_alluvial' in to_plot:
             self.plot_alluvial()
+        if 'bow_tie_stats' in to_plot:
+            self.bow_tie_stats()            
 
     def load_graph_data(self):
         for graph_type in self.graph_order:
@@ -216,10 +218,11 @@ class Plotter(object):
         no_articles = self.graph_data['1']['graph_size']
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         with io.open(fpath, 'a', encoding='utf-8') as outfile:
-            text = self.label2language[self.label[:-4]] + ' & ' + self.label[:-4]
+            text = self.label2language[self.label[:-4]]
             # print(text)
             outfile.write(text)
             for cidx, cstat in enumerate(cstats[:3]):
+                text = ''
                 cover = 100 * cstat['incomp_size'] / no_articles
                 names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
@@ -229,10 +232,6 @@ class Plotter(object):
                     names = '\\begin{CJK}{UTF8}{min} ' + names + '\\end{CJK}'
                 elif self.label == 'ruwiki':
                     names = '\\foreignlanguage{russian}{' + names + '}'
-                if cidx == 0:
-                    text = ''
-                else:
-                    text = ' & '
                 text += ' & %.1f\\%% & %s & %s \\\\\n' %\
                         (cover, names_translated, names)
                 # print(text, end='')
@@ -622,6 +621,10 @@ class Plotter(object):
         with io.open(hfname, 'w', encoding='utf-8') as outfile:
             outfile.write(template[0] + '"' + fname + '"' + template[1])
 
+    def bow_tie_stats(self):
+        # ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
+        scc_size = self.graph_data['all']['bow_tie'][1]
+        print('    SCC size is %.2f%%' % scc_size)
 
 if __name__ == '__main__':
     n_vals = [
@@ -638,11 +641,12 @@ if __name__ == '__main__':
         # 'cp_count',
         # 'cp_size',
         # 'cc',
-        'recommendations',
+        # 'recommendations',
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
+        'bow_tie_alluvial',
+        # 'bow_tie_stats',
     ]
     if 'cycles' in to_plot:
         try:
@@ -651,15 +655,16 @@ if __name__ == '__main__':
             pass
 
     for wp in [
-        'simple',
+        # 'simple',
 
-        # 'en',
-        # 'de',
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
     ]:
+        print(wp)
         p = Plotter(wp + 'wiki', to_plot=to_plot)
