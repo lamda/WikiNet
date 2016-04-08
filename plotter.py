@@ -577,9 +577,11 @@ class Plotter(object):
 
     def bow_tie_stats(self):
         # ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
-        for graph_type in self.graph_order:
-            scc_size = self.graph_data[graph_type]['bow_tie'][1]
-            print('       ', graph_type, 'SCC size is %.2f%%' % scc_size)
+        # for graph_type in self.graph_order:
+            # scc_size = self.graph_data[graph_type]['bow_tie'][1]
+            # print('       ', graph_type, 'SCC size is %.2f%%' % scc_size)
+        val = 100 * self.graph_data['infobox']['recommenders'] / self.graph_data['all']['graph_size']
+        print('        Infoboxes present for %.2f%%' % val)
 
 if __name__ == '__main__':
     n_vals = [
@@ -600,8 +602,8 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        'bow_tie_alluvial',
-        # 'bow_tie_stats',
+        # 'bow_tie_alluvial',
+        'bow_tie_stats',
     ]
     if 'cycles' in to_plot:
         try:

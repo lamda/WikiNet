@@ -703,13 +703,13 @@ class TestRecommender(BaseRecommender):
 if __name__ == '__main__':
     for wp in [
         # 'simple',
-        # 'en',
+        'en',
         # 'de',
         # 'fr',
         # 'es',
-        'it',
+        # 'it',
     ]:
-        r = Recommender(wp, n_recs=1000, verbose=False)
+        r = Recommender(wp, n_recs=5000, verbose=False)
         # r.print_example()
         # r.print_examples()
         # r.recommend(rec_type='scc_based')

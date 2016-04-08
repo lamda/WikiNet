@@ -5,6 +5,7 @@ import io
 import matplotlib
 matplotlib.rc('pdf', fonttype=42)
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pdb
 from scipy.stats import pearsonr, spearmanr
@@ -236,9 +237,82 @@ def plot_legend():
     figlegend.savefig(os.path.join('plots', 'recs_legend.pdf'))
 
 
+def get_outdegree_stats():
+    wikipedias = [
+        'simple',
+
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
+    ]
+    n_val = 'lead'
+    # n_val = 'all'
+    print(n_val)
+    for wp in wikipedias:
+        print(wp)
+        g = Graph(wiki_code=wp, N=n_val)
+        g.load_graph()
+        # in_degs, scc_degs = [], []
+        # for vidx, v in enumerate(g.graph.vertices()):
+        #     if vidx % 1001 == 0:
+        #         print('\r', vidx+1, '/', g.graph.num_vertices(), end='')
+        #     if g.graph.vp['bowtie'][v] == 'IN':
+        #         in_degs.append(v.out_degree())
+        #     elif g.graph.vp['bowtie'][v] == 'SCC':
+        #         scc_degs.append(v.out_degree())
+        # print()
+        # print('    IN: %.2f, SCC: %.2f | mean' % (np.mean(in_degs), np.mean(scc_degs)))
+        # print('    IN: %.2f, SCC: %.2f | median' % (np.median(in_degs), np.median(scc_degs)))
+
+        degs = []
+        for vidx, v in enumerate(g.graph.vertices()):
+            if vidx % 1001 == 0:
+                    print('\r', vidx+1, '/', g.graph.num_vertices(), end='')
+            degs.append(v.out_degree())
+        print()
+        print('    %.2f | mean' % (np.mean(degs)))
+        print('    %.2f | median' % (np.median(degs)))
+
+def get_infobox_stats():
+    wikipedias = [
+        'simple',
+
+        'en',
+        'de',
+        'fr',
+        'es',
+        'ru',
+        'it',
+        'ja',
+        'nl',
+    ]
+    n_val = 'infobox'
+    # n_val = 'lead'
+    # n_val = 'all'
+    print(n_val)
+    for wp in wikipedias:
+        print(wp)
+        g = Graph(wiki_code=wp, N=n_val)
+        g.load_graph()
+        ib_present = 0
+        for vidx, v in enumerate(g.graph.vertices()):
+            if vidx % 1001 == 0:
+                print('\r', vidx+1, '/', g.graph.num_vertices(), end='')
+            if v.out_degree() > 0:
+                ib_present += 1
+        print()
+        print('    IB present for %.2f%%' % (100 * ib_present / g.graph.num_vertices()))
+
+
 if __name__ == '__main__':
     # get_navigability_stats()
     # get_view_count_stats()
     # plot_recommendation_results()
-    plot_legend()
-
+    # plot_legend()
+    get_outdegree_stats()
+    # get_infobox_stats()
