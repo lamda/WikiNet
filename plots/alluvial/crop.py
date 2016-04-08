@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     print('copying pdfs...')
     for f in files:
-        # shutil.copy(f[2], 'D:\\Dropbox\\paper_wikinet\\figures')
-        shutil.copy(f[2], 'D:\\PhD\\Dropbox\\paper_wikinet\\figures')
+        shutil.copy(f[2], 'D:\\Dropbox\\paper_wikinet\\figures')
+        # shutil.copy(f[2], 'D:\\PhD\\Dropbox\\paper_wikinet\\figures')
 
     print('done')

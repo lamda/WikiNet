@@ -63,7 +63,7 @@ def get_navigability_stats():
         print(n_val.replace('_', '\\_') + ' & ', end='')
         for feature, xlabel in [
             ('edits', '# edits'),
-            # ('articles', '# articles'),
+            ('articles', '# articles'),
             ('edits_per_article', 'edits per article'),
             # ('depth', 'depth'),
             # ('outdegree_av', 'outdegree (average)'),
@@ -116,8 +116,6 @@ def get_navigability_stats():
             plt.close()
 
 
-
-
 def get_view_count_stats():
     wikipedias = [
         # 'simple',
@@ -157,7 +155,90 @@ def get_view_count_stats():
             outfile.write(text)
 
 
+def plot_recommendation_results():
+    wikipedia_color = [
+        # 'simple',
+
+        # ('en', (0.4, 0.7607843137254902, 0.6470588235294118)),
+        # ('de', (0.9882352941176471, 0.5529411764705883, 0.3843137254901961)),
+        ('en', 'red'),
+        ('de', 'blue'),
+        # 'fr',
+        # 'es',
+        # 'ru',
+        # 'it',
+        # 'ja',
+        # 'nl',
+    ]
+    wp2vc_sum = {
+        'it': 282703316,
+        'de': 684947734,
+        'fr': 490725667,
+        'es': 507420831,
+        'ja': 579254856,
+        'nl': 113945934,
+        'ru': 710613125,
+        'en': 4804651317,
+    }
+    for metric, label in [
+        ('scc_size', 'SCC Size in %'),
+        ('vc_scc', 'Sum of View Counts in %')
+    ]:
+        fig, ax = plt.subplots(1, figsize=(6, 3))
+        for wp, color in wikipedia_color:
+            stats_file_path = os.path.join('data', wp + 'wiki', 'stats')
+            fpath = os.path.join(stats_file_path, 'links_' + 'first_p' + '.obj')
+            stats = read_pickle(fpath)
+            if metric == 'scc_size':
+                d = stats['graph_size']
+            elif metric == 'vc_scc':
+                d = wp2vc_sum[wp]
+            vals_scc_based = [100*v/d for v in stats['recs_scc_based_' + metric]]
+            vals_vc_based = [100*v/d for v in stats['recs_vc_based_' + metric]]
+            x_vals = range(len(vals_scc_based))
+            ax.plot(x_vals, vals_scc_based, label=wp + ' (SCC-based)', color=color, ls='solid', lw=2)
+            ax.plot(x_vals, vals_vc_based, label=wp + ' (VC-based)', color=color, ls='dashed', lw=2)
+
+        ylabel = label
+        ax.set_xlabel('# recommendations added')
+        ax.set_ylabel(ylabel)
+        # ax.set_ylim(0, 101)
+        # plt.legend()
+
+        plt.tight_layout()
+        fpath = os.path.join('plots', 'recs_' + metric)
+        for ftype in ['.pdf']:
+            plt.savefig(fpath + ftype)
+        plt.close()
+
+
+def plot_legend():
+    color2label = {
+        # (0.4, 0.7607843137254902, 0.6470588235294118): 'English',
+        # (0.9882352941176471, 0.5529411764705883, 0.3843137254901961): 'German'
+        'red': 'English',
+        'blue': 'German',
+    }
+    linestyle2label = {
+        'solid': 'SCC-based',
+        'dashed': 'VC-based',
+    }
+
+    figData = plt.figure()
+    ax = figData.add_subplot(111)
+    for c in color2label:
+        for ls in linestyle2label:
+            label = color2label[c] + ' (' + linestyle2label[ls] + ')'
+            plt.plot([0, 1], [2, 3], color=c, linestyle=ls, label=label)
+    figlegend = plt.figure(figsize=(11.85, 0.55))
+    figlegend.legend(*ax.get_legend_handles_labels(), loc='upper left', ncol=4)
+    figlegend.show()
+    figlegend.savefig(os.path.join('plots', 'recs_legend.pdf'))
+
+
 if __name__ == '__main__':
-    get_navigability_stats()
+    # get_navigability_stats()
     # get_view_count_stats()
+    # plot_recommendation_results()
+    plot_legend()
 

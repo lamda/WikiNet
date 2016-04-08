@@ -119,5 +119,29 @@ def export_bowtie_dicts():
         write_pickle(os.path.join(pageview_dir_filtered, fname), d)
 
 
+def print_vc_sums():
+    wikipedias = [
+        # 'simple',
+
+        'it',
+        'de',
+        'fr',
+        'es',
+        'ja',
+        'nl',
+        'ru',
+        'en',
+    ]
+    pageview_dir_filtered = os.path.join('data', 'pageviews', 'filtered')
+    print('{')
+    for wp in wikipedias:
+        fname = 'id2views-' + wp + '.obj'
+        fpath = os.path.join(pageview_dir_filtered, fname)
+        id2views = read_pickle(fpath)
+        print("    '%s': %d," %(wp, sum(id2views.values())))
+    print('}')
+
+
 if __name__ == '__main__':
-    export_bowtie_dicts()
+    # export_bowtie_dicts()
+    print_vc_sums()

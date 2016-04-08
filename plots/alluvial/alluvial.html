@@ -228,13 +228,13 @@ nodes.append('svg:text')
         .text(function(d) {
             if (d.nodeLabel == 'SCC') {
                 if (d.id == 1)
-                    return "First Link";
+                    return "Entire Article";
                 if (d.id == 8)
-                    return "First Lead Paragraph";
-                if (d.id == 15)
                     return "Entire Lead";
+                if (d.id == 15)
+                    return "First Lead Paragraph";
                 if (d.id == 22)
-                    return "Entire Article";   
+                    return "First Link";   
                 if (d.id == 29)
                     return "Infobox";
                 }

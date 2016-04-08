@@ -2,6 +2,8 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import pdb
+
 from main import Wikipedia, Graph
 
 WIKI_CODE = 'en'
@@ -45,6 +47,8 @@ if __name__ == '__main__':
         print('---------------- N =', n_val, '----------------')
         g = Graph(wiki_code=WIKI_CODE, N=n_val)
         g.load_graph()
+        name2node = {g.graph.vp['title'][i]: i for i in g.graph.vertices()}
+        pdb.set_trace()
         # g.compute_stats()
         g.update_stats()
         g.print_stats()

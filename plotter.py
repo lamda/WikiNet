@@ -288,54 +288,6 @@ class Plotter(object):
             plt.savefig(fpath + ftype)
         plt.close()
 
-    def plot_recommendations_scc_size(self):
-        fig, ax = plt.subplots(1, figsize=(6, 3))
-        for pidx, prop, lab in [
-            (0, 'recs_scc_based_scc_size', 'SCC-based'),
-            (1, 'recs_vc_based_scc_size', 'VC-based'),
-        ]:
-            bar_vals = self.graph_data['first_p'][prop]
-            # gs = self.graph_data['first_p']['graph_size']
-            # bar_vals = [100 * bv / gs for bv in bar_vals]
-            x_vals = range(len(bar_vals))
-            ax.plot(x_vals, bar_vals, label=lab, color=self.colors[pidx])
-
-        ylabel = 'SCC size'
-        ax.set_xlabel('# recommendations added')
-        ax.set_ylabel(ylabel)
-        ax.set_xlim(0, len(bar_vals) + 1)
-        # ax.set_ylim(0, 101)
-        plt.legend()
-
-        plt.tight_layout()
-        fpath = os.path.join(self.plot_folder, self.label + '_recs_scc')
-        for ftype in self.plot_file_types:
-            plt.savefig(fpath + ftype)
-        plt.close()
-        
-    def plot_recommendations_vc(self):
-        fig, ax = plt.subplots(1, figsize=(6, 3))
-        for pidx, inc, scc, lab in [
-            (0, 'recs_scc_based_vc_inc', 'recs_scc_based_vc_scc', 'SCC-based'),
-            (1, 'recs_vc_based_vc_inc', 'recs_vc_based_vc_scc', 'VC-based'),
-        ]:
-            bar_vals = self.graph_data['first_p'][scc]
-            x_vals = range(len(bar_vals))
-            ax.plot(x_vals, bar_vals, label=lab, color=self.colors[pidx])
-
-        ylabel = 'view count sum in SCC'
-        ax.set_xlabel('# recommendations added')
-        ax.set_ylabel(ylabel)
-        ax.set_xlim(0, len(bar_vals) + 1)
-        # ax.set_ylim(0, 101)
-        plt.legend()
-
-        plt.tight_layout()
-        fpath = os.path.join(self.plot_folder, self.label + '_recs_vc')
-        for ftype in self.plot_file_types:
-            plt.savefig(fpath + ftype)
-        plt.close()        
-
     def plot_ecc(self):
         # # plot_ecc_legend
         fig = plt.figure()
@@ -541,30 +493,33 @@ class Plotter(object):
 
         np.set_printoptions(precision=3)
         np.set_printoptions(suppress=True)
-
+        graph_order = ['all', 'lead', 'first_p', '1', 'infobox']
         indices = [0, 4, 9, 14, 19]
         ind = u'    '
         labels = ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
         with io.open('plots/alluvial/alluvial.html', encoding='utf-8')\
                 as infile:
             template = infile.read().split('"data.js"')
-        data_raw = [self.graph_data[g]['bow_tie'] for g in self.graph_order]
+        data_raw = [self.graph_data[g]['bow_tie'] for g in graph_order]
         data = [[] for i in range(20)]
         for i, d in zip(indices, data_raw):
             data[i] = d
-        changes = [self.graph_data[g]['bow_tie_changes'] for g in self.graph_order]
-        changes = [[]] + [c.T for c in changes[1:-1]]
-
+        changes = [self.graph_data[g]['bow_tie_changes'] for g in graph_order]
+        # pdb.set_trace()
+        # changes = [[]] + [c.T for c in changes if c else None]
+        changes = [c if c is not None else None for c in changes][:-2] +\
+            [[], []]
+ 
         # DEBUG
         print(self.label)
         print()
         print(labels)
         for d, c in zip(data_raw, changes):
             print('-----------------------------------------------------------')
-            print(c)
             for dd in d:
                 print('%.4f, ' % dd, end='')
             print()
+            print(c)
             print()
         # /DEBUG
 
@@ -602,12 +557,11 @@ class Plotter(object):
             for cidx, ci in enumerate(changes):
                 for mindex, val in np.ndenumerate(ci):
                     outfile.write(ind * 2 + u'{\n')
-                    s = unicode((cidx - 1) * len(labels) + mindex[0])
-                    t = unicode(cidx * len(labels) + mindex[1])
-                    outfile.write(ind * 3 + u'"source": ' + s +
-                                  ',\n')
-                    outfile.write(ind * 3 + u'"target": ' + t
-                                  + ',\n')
+                    # pdb.set_trace()
+                    s = unicode((cidx) * len(labels) + mindex[0])
+                    t = unicode((cidx+1) * len(labels) + mindex[1])
+                    outfile.write(ind * 3 + u'"source": ' + s +',\n')
+                    outfile.write(ind * 3 + u'"target": ' + t + ',\n')
                     outfile.write(ind * 3 + u'"value": ' +
                                   # unicode(val * 500000) + '\n')
                                   unicode(val * 5000000) + '\n')
@@ -623,8 +577,9 @@ class Plotter(object):
 
     def bow_tie_stats(self):
         # ['IN', 'SCC', 'OUT', 'TL_IN', 'TL_OUT', 'TUBE', 'OTHER']
-        scc_size = self.graph_data['all']['bow_tie'][1]
-        print('    SCC size is %.2f%%' % scc_size)
+        for graph_type in self.graph_order:
+            scc_size = self.graph_data[graph_type]['bow_tie'][1]
+            print('       ', graph_type, 'SCC size is %.2f%%' % scc_size)
 
 if __name__ == '__main__':
     n_vals = [
