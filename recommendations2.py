@@ -16,6 +16,10 @@ from main import Graph
 from tools import read_pickle, write_pickle, url_unescape
 
 
+class OutOfLinksException(Exception):
+    pass
+
+
 class BaseRecommender(object):
     def __init__(self):
         self.scc, self.inc = set(), set()
@@ -237,6 +241,36 @@ class Recommender(BaseRecommender):
             print('\nwriting to disk...')
             write_pickle(fpath, self.node2out_component)
 
+    def print_examples(self):
+        self.reset()
+        self.get_reach()
+        self.get_recommendation_candidates()
+        print('GETTING EXAMPLES...')
+        c_scc2c_inc = collections.defaultdict(set)
+        for idx, (c_inc, c_scc) in enumerate(self.c_inc2c_scc.iteritems()):
+            print('\r', idx+1, '/', len(self.c_inc2c_scc), end='')
+            for scc_node in c_scc:
+                c_scc2c_inc[scc_node].add(c_inc)
+
+        for func, rec_type, label in [
+            (self.get_next_recommendation_scc_based, 'scc_based', 'SCC-based'),
+            (self.get_next_recommendation_vc_based, 'vc_based', 'VC-based'),
+        ]:
+            self.reset()
+            self.get_reach()
+            self.get_recommendation_candidates()
+            print(label, 'recommendations')
+            for i in range(10):
+                inc_node, scc_node = func()
+                scc_graph_node = self.wid2node_small[scc_node]
+                scc_title = self.g_small.graph.vp['title'][scc_graph_node]
+                print('%s (%d)' % (scc_title, scc_node))
+                for inc_node in c_scc2c_inc[scc_node]:
+                    inc_graph_node = self.wid2node_small[inc_node]
+                    inc_title = self.g_small.graph.vp['title'][inc_graph_node]
+                    print('    %s (%d)' % (inc_title, inc_node))
+                self.add_recommendation(rec_type=rec_type)
+
     def get_next_recommendation_scc_based(self):
         c_inc_max, val_max = -1, -1
         for c_inc in self.c_inc2c_scc:
@@ -250,7 +284,8 @@ class Recommender(BaseRecommender):
             for scc_node in self.c_inc2c_scc[c_inc_max]:
                 scc_graph_node = self.wid2node_small[scc_node]
                 print('    %s (%d)' % (self.g_small.graph.vp['title'][scc_graph_node], scc_node))
-
+        if c_inc_max == -1 or val_max == -1:
+            raise OutOfLinksException
         return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)[0]
 
     def get_next_recommendation_vc_based(self):
@@ -271,6 +306,8 @@ class Recommender(BaseRecommender):
                 print('            %s (%d)' % (
                     self.g_small.graph.vp['title'][scc_graph_node], scc_node)
                 )
+        if c_inc_max == -1 or val_max == -1:
+            raise OutOfLinksException
         return c_inc_max, random.sample(self.c_inc2c_scc[c_inc_max], 1)[0]
 
     def get_recommendation_candidates(self):
@@ -343,13 +380,17 @@ class Recommender(BaseRecommender):
         self.reset()
         self.get_reach()
         self.get_recommendation_candidates()
-        print('adding recommendations...')
+        print('adding recommendations based on %s...' % rec_type)
         for i in range(self.n_recs):
             if self.verbose:
                 print('   ', i+1, '/', self.n_recs)
             else:
                 print('\r   ', i+1, '/', self.n_recs, end='')
-            self.add_recommendation(rec_type=rec_type)
+            try:
+                self.add_recommendation(rec_type=rec_type)
+            except OutOfLinksException:
+                print('\nout of links at %d - breaking' % (i+1))
+                break
         print()
 
         self.g_small.load_stats()
@@ -633,13 +674,15 @@ class TestRecommender(BaseRecommender):
 if __name__ == '__main__':
     for wp in [
         # 'simple',
-        # 'en',
-        'de',
-        # 'it',
+        'en',
+        # 'de',
+        # 'fr',
+        # 'es',
     ]:
-        r = Recommender(wp, n_recs=10, verbose=True)
-        r.recommend(rec_type='scc_based')
-        r.recommend(rec_type='vc_based')
+        r = Recommender(wp, n_recs=10000, verbose=False)
+        r.print_examples()
+        # r.recommend(rec_type='scc_based')
+        # r.recommend(rec_type='vc_based')
 
     # st = TestRecommender()
     # st.test_node2reach()
