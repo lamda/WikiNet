@@ -156,22 +156,24 @@ def get_view_count_stats():
             outfile.write(text)
 
 
-def plot_recommendation_results():
+def plot_recommendation_results(limit=None):
     wikipedia_color = [
-        # 'simple',
+        # ('simple', 'green'),
 
         # ('en', (0.4, 0.7607843137254902, 0.6470588235294118)),
         # ('de', (0.9882352941176471, 0.5529411764705883, 0.3843137254901961)),
         ('en', 'red'),
         ('de', 'blue'),
-        # 'fr',
-        # 'es',
-        # 'ru',
-        # 'it',
-        # 'ja',
-        # 'nl',
+        # ('es', 'red'),
+        # ('fr', 'blue'),
+        # ('es', 'green'),
+        # ('ru', 'green'),
+        # ('it', 'green'),
+        # ('ja', 'green'),
+        # ('nl', 'green'),
     ]
     wp2vc_sum = {
+        'simple': 10435324,
         'it': 282703316,
         'de': 684947734,
         'fr': 490725667,
@@ -194,8 +196,10 @@ def plot_recommendation_results():
                 d = stats['graph_size']
             elif metric == 'vc_scc':
                 d = wp2vc_sum[wp]
-            vals_scc_based = [100*v/d for v in stats['recs_scc_based_' + metric]]
-            vals_vc_based = [100*v/d for v in stats['recs_vc_based_' + metric]]
+            vals_scc_based = [100*v/d for v in stats['recs_scc_based_' + metric]][:limit]
+            vals_vc_based = [100*v/d for v in stats['recs_vc_based_' + metric]][:limit]
+            print(wp, len(vals_scc_based), len(vals_vc_based))
+            # continue
             x_vals = range(len(vals_scc_based))
             ax.plot(x_vals, vals_scc_based, label=wp + ' (SCC-based)', color=color, ls='solid', lw=2)
             ax.plot(x_vals, vals_vc_based, label=wp + ' (VC-based)', color=color, ls='dashed', lw=2)
@@ -278,6 +282,7 @@ def get_outdegree_stats():
         print('    %.2f | mean' % (np.mean(degs)))
         print('    %.2f | median' % (np.median(degs)))
 
+
 def get_infobox_stats():
     wikipedias = [
         'simple',
@@ -312,7 +317,8 @@ def get_infobox_stats():
 if __name__ == '__main__':
     # get_navigability_stats()
     # get_view_count_stats()
+    plot_recommendation_results(limit=1000)
     # plot_recommendation_results()
     # plot_legend()
-    get_outdegree_stats()
+    # get_outdegree_stats()
     # get_infobox_stats()

@@ -121,7 +121,7 @@ def export_bowtie_dicts():
 
 def print_vc_sums():
     wikipedias = [
-        # 'simple',
+        'simple',
 
         'it',
         'de',

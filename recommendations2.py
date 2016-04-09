@@ -703,10 +703,10 @@ class TestRecommender(BaseRecommender):
 if __name__ == '__main__':
     for wp in [
         # 'simple',
-        'en',
+        # 'en',
         # 'de',
         # 'fr',
-        # 'es',
+        'es',
         # 'it',
     ]:
         r = Recommender(wp, n_recs=5000, verbose=False)
