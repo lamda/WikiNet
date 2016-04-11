@@ -38,8 +38,8 @@ if __name__ == '__main__':
     # wp.cleanup()
 
     for n_val in [
-        # 1,
-        'first_p',
+        1,
+        # 'first_p',
         # 'lead',
         # 'infobox',
     #     'all',
@@ -47,11 +47,11 @@ if __name__ == '__main__':
         print('---------------- N =', n_val, '----------------')
         g = Graph(wiki_code=WIKI_CODE, N=n_val)
         g.load_graph()
-        name2node = {g.graph.vp['title'][i]: i for i in g.graph.vertices()}
-        pdb.set_trace()
+        # name2node = {g.graph.vp['title'][i]: i for i in g.graph.vertices()}
+        # pdb.set_trace()
         # g.compute_stats()
         g.update_stats()
-        g.print_stats()
+        # g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

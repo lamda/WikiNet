@@ -709,10 +709,10 @@ if __name__ == '__main__':
         'es',
         # 'it',
     ]:
-        r = Recommender(wp, n_recs=5000, verbose=False)
+        r = Recommender(wp, n_recs=10000, verbose=False)
         # r.print_example()
         # r.print_examples()
-        # r.recommend(rec_type='scc_based')
+        r.recommend(rec_type='scc_based')
         r.recommend(rec_type='vc_based')
 
     # st = TestRecommender()

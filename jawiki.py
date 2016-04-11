@@ -42,11 +42,11 @@ if __name__ == '__main__':
         print('---------------- N =', n_val, '----------------')
         g = Graph(wiki_code=WIKI_CODE, N=n_val)
         g.load_graph()
-        name2node = {g.graph.vp['title'][i]: i for i in g.graph.vertices()}
-        pdb.set_trace()  # 人間 (%E4%BA%BA%E9%96%93), 人間関係 (%E4%BA%BA%E9%96%93%E9%96%A2%E4%BF%82)
-        g.compute_stats()
-        # g.update_stats()
-        g.print_stats()
+        # name2node = {g.graph.vp['title'][i]: i for i in g.graph.vertices()}
+        # pdb.set_trace()  # 人間 (%E4%BA%BA%E9%96%93), 人間関係 (%E4%BA%BA%E9%96%93%E9%96%A2%E4%BF%82)
+        # g.compute_stats()
+        g.update_stats()
+        # g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

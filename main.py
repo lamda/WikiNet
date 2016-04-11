@@ -548,10 +548,11 @@ class Graph(object):
         # self.stats['graph_size'], self.stats['recommenders'],\
         #     self.stats['outdegree_av'],\
         #     self.stats['outdegree_median'] = self.basic_stats()
-        # if self.N == 1:
-        #     self.stats['comp_stats'] = self.cycle_components()
+        if self.N == 1:
+            self.stats['top_cycle'] = self.top_cycle()
+            # self.stats['comp_stats'] = self.cycle_components()
         # self.stats['bow_tie'] = self.bow_tie()
-        self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
+        # self.stats['bow_tie_changes'] = self.compute_bowtie_changes()
         self.save_stats()
 
     def print_stats(self):
@@ -665,7 +666,7 @@ class Graph(object):
             [self.graph.vp['title'][node] for node in comp]
             for comp in comps
         ]
-        # pdb.set_trace()
+
         comp_stats = []
         for comp, incomp_size, comp_name in zip(comps, incomps, comp_names):
             comp_stats.append(
@@ -680,6 +681,26 @@ class Graph(object):
         # pdb.set_trace()
 
         return comp_stats
+
+    def top_cycle(self):
+        cycle = self.stats['comp_stats'][0]['vertices']
+        for nd in cycle:
+            nbs = [n for n in self.graph.vertex(nd).out_neighbours()]
+            if len(nbs) > 1:
+                pdb.set_trace()
+            # pdb.set_trace()
+            self.graph.remove_edge(self.graph.edge(nd, nbs[0]))
+
+        graph_reversed = gt.GraphView(self.graph, reversed=True, directed=True)
+
+        incs = []
+        for nd in cycle:
+            inc = np.count_nonzero(gt.label_out_component(graph_reversed, nd).a)
+            incs.append((inc, self.graph.vp['title'][nd]))
+
+        for inc, title in sorted(incs):
+            print('%.2f %d %s' % (100*inc/self.stats['graph_size'], inc, title))
+        return incs
 
     def bow_tie_old(self):
         print('bow tie (old and slow version)')

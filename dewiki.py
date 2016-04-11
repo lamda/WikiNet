@@ -21,24 +21,24 @@ if __name__ == '__main__':
     # wp.get_links(link_type='all', start=81, stop=162)
     # wp.get_links(link_type='all', start=162, stop=243)
     # wp.get_links(link_type='all', start=243, stop=None)
-    wp.combine_link_chunks()
+    # wp.combine_link_chunks()
     # wp.get_links('divs_tables')
-    wp.correct_bug()
-    wp.cleanup()
+    # wp.correct_bug()
+    # wp.cleanup()
     #
     for n_val in [
         1,
-        'first_p',
-        'lead',
-        'infobox',
-        'all',
+        # 'first_p',
+        # 'lead',
+        # 'infobox',
+        # 'all',
     ]:
         print('---------------- N =', n_val, '----------------')
         g = Graph(wiki_code=WIKI_CODE, N=n_val)
         g.load_graph()
-        g.compute_stats()
-        # g.update_stats()
-        g.print_stats()
+        # g.compute_stats()
+        g.update_stats()
+        # g.print_stats()
 
     end_time = datetime.now()
     print('Duration: {}'.format(end_time - start_time))

@@ -81,7 +81,7 @@ class Plotter(object):
         if 'bow_tie_alluvial' in to_plot:
             self.plot_alluvial()
         if 'bow_tie_stats' in to_plot:
-            self.bow_tie_stats()            
+            self.bow_tie_stats()
 
     def load_graph_data(self):
         for graph_type in self.graph_order:
@@ -202,10 +202,10 @@ class Plotter(object):
                 '西アジア': 'Western Asia',
                 'アジア': 'Asia',
                 'アッシリア': 'Assyria',
-                
+
                 'トルコ語': 'Turkish language',
                 'アゼルバイジャン語': 'Azerbaijani language',
-                
+
             }
 
             try:
@@ -216,17 +216,27 @@ class Plotter(object):
         fpath = os.path.join('plots', 'cycles.txt')
         cstats = self.graph_data['1']['comp_stats']
         no_articles = self.graph_data['1']['graph_size']
+
         cstats.sort(key=operator.itemgetter('incomp_size'), reverse=True)
         with io.open(fpath, 'a', encoding='utf-8') as outfile:
             text = self.label2language[self.label[:-4]]
             # print(text)
             outfile.write(text)
-            for cidx, cstat in enumerate(cstats[:3]):
+            for cidx, cstat in enumerate(cstats[:1]):
                 text = ''
                 cover = 100 * cstat['incomp_size'] / no_articles
-                names = [n.replace('_', ' ') for n in cstat['names']]
+                if cidx == 0:
+                    top_cycle = self.graph_data['1']['top_cyle']
+                    top_cycle.sort(reverse=True)
+                    names = [tn[1].replace('_', ' ') for tn in top_cycle]
+                else:
+                    names = [n.replace('_', ' ') for n in cstat['names']]
                 names = map(url_unescape, names)
                 names_translated = ', '.join(map(translate, names))
+                if cidx == 0:
+                    n0 = '\\textbf{' + translate(names[0]) + ' (%.1f\\%%)}' % (100*top_cycle[0][0] / no_articles)
+                    names_translated = [n0] + map(translate, names[1:])
+                    names_translated = ', '.join(names_translated)
                 names = ', '.join(names)
                 if self.label == 'jawiki':
                     names = '\\begin{CJK}{UTF8}{min} ' + names + '\\end{CJK}'
@@ -509,7 +519,7 @@ class Plotter(object):
         # changes = [[]] + [c.T for c in changes if c else None]
         changes = [c if c is not None else None for c in changes][:-2] +\
             [[], []]
- 
+
         # DEBUG
         print(self.label)
         print()
@@ -586,13 +596,13 @@ class Plotter(object):
 if __name__ == '__main__':
     n_vals = [
         '1',
-        'first_p',
-        'lead',
-        'all',
-        'infobox',
+        # 'first_p',
+        # 'lead',
+        # 'all',
+        # 'infobox',
     ]
     to_plot = [
-        # 'cycles',
+        'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
