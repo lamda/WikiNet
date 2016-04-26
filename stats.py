@@ -317,7 +317,7 @@ def get_infobox_stats():
 if __name__ == '__main__':
     # get_navigability_stats()
     # get_view_count_stats()
-    plot_recommendation_results(limit=1000)
+    plot_recommendation_results(limit=10000)
     # plot_recommendation_results()
     # plot_legend()
     # get_outdegree_stats()

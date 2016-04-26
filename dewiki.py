@@ -2,6 +2,8 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import pdb
+
 from main import Wikipedia, Graph
 
 WIKI_CODE = 'de'
@@ -27,8 +29,8 @@ if __name__ == '__main__':
     # wp.cleanup()
     #
     for n_val in [
-        1,
-        # 'first_p',
+        # 1,
+        'first_p',
         # 'lead',
         # 'infobox',
         # 'all',
@@ -36,6 +38,7 @@ if __name__ == '__main__':
         print('---------------- N =', n_val, '----------------')
         g = Graph(wiki_code=WIKI_CODE, N=n_val)
         g.load_graph()
+        pdb.set_trace()
         # g.compute_stats()
         g.update_stats()
         # g.print_stats()
