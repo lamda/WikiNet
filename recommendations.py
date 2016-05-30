@@ -263,7 +263,7 @@ class Recommender(BaseRecommender):
             print('    %s (%d)' % (inc_title, inc_node))
         pdb.set_trace()
 
-    def print_examples(self, rec_type, n_examples=20):
+    def print_examples(self, rec_type, n_examples=100):
         self.reset()
         self.get_reach()
         self.get_recommendation_candidates()
@@ -703,16 +703,16 @@ class TestRecommender(BaseRecommender):
 if __name__ == '__main__':
     for wp in [
         # 'simple',
-        # 'en',
-        'de',
+        'en',
+        # 'de',
         # 'fr',
         # 'es',
         # 'it',
     ]:
         r = Recommender(wp, n_recs=10000, verbose=False)
         # r.print_example()
-        # r.print_examples(rec_type='scc_based')
-        r.print_examples(rec_type='vc_based')
+        r.print_examples(rec_type='scc_based')
+        # r.print_examples(rec_type='vc_based')
         # r.recommend(rec_type='scc_based')
         # r.recommend(rec_type='vc_based')
 

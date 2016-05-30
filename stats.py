@@ -100,9 +100,9 @@ def get_navigability_stats():
             # print('    pearson corr=%.3f, p=%.3f' % (pn[0], pn[1]))
             # print('    spearman corr=%.3f, p=%.3f' % (sm[0], sm[1]))
             if corr[1] <= 0.05:
-                print('$%.2f$' % corr[0], end='')
+                print('$%.2f$ ***, p=%.3f' % (corr[0], corr[1]), end='')
             else:
-                print('-', end='')
+                print('$%.2f$, p=%.3f' % (corr[0], corr[1]), end='')
             if feature != 'outdegree_md':
                 print(' & ', end='')
             else:
@@ -315,9 +315,9 @@ def get_infobox_stats():
 
 
 if __name__ == '__main__':
-    # get_navigability_stats()
+    get_navigability_stats()
     # get_view_count_stats()
-    plot_recommendation_results(limit=10000)
+    # plot_recommendation_results(limit=10000)
     # plot_recommendation_results()
     # plot_legend()
     # get_outdegree_stats()

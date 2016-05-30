@@ -105,7 +105,7 @@ var maxn = d3.max(data, function(t) { return t.length }),
 
 // settings and scales
 //var w = 800,
-var w = 1300,
+var w = 1200,
         h = 300,
         gapratio = .675,
         padding = 15,
@@ -218,7 +218,7 @@ nodes.append('svg:text')
                     return x(0) - w / 7.5 * gapratio
             },
             "font-family": "Helvetica",
-            "font-size": "17px",
+            "font-size": "20px",
             fill: "black",
             "text-anchor": "middle",
             //"font-weight": "bold",
@@ -234,13 +234,13 @@ nodes.append('svg:text')
                 if (d.id == 15)
                     return "First Lead Paragraph";
                 if (d.id == 22)
-                    return "First Link";   
+                    return "First Link";
                 if (d.id == 29)
                     return "Infobox";
                 }
             else
-                return '';})        
-        
+                return '';})
+
 nodes.append('svg:text')
         .attr({
             y: function(d, i) {
@@ -255,18 +255,20 @@ nodes.append('svg:text')
             "font-family": "Helvetica",
             //"font-size": "17px",
             "font-size": function(d) {
-                if (d.nodeLabel == "OTHER")
-                    return "12px";
-                return "17px";
+                // if (d.nodeLabel == "OTHER")
+                //    return "15px";
+                return "20px";
             },
             fill: "black",
             "text-anchor": "middle",
             //"font-weight": "bold",
             "paddingLeft": "20px",
-            "dominant-baseline": "hanging"
+             "dominant-baseline": "hanging",
+             "baseline-shift": "12%"
         })
         .text(function(d) {
-            if (d.nodeValue > 1)
+            // if (d.nodeValue > 1)
+            if ((d.nodeValue > 1500000) || (d.nodeLabel == 'SCC') || (d.nodeLabel == 'IN'))
                 return d.nodeLabel;
             else
                 return '';})

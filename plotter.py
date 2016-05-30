@@ -593,16 +593,17 @@ class Plotter(object):
         val = 100 * self.graph_data['infobox']['recommenders'] / self.graph_data['all']['graph_size']
         print('        Infoboxes present for %.2f%%' % val)
 
+
 if __name__ == '__main__':
     n_vals = [
         '1',
-        # 'first_p',
-        # 'lead',
-        # 'all',
-        # 'infobox',
+        'first_p',
+        'lead',
+        'all',
+        'infobox',
     ]
     to_plot = [
-        'cycles',
+        # 'cycles',
         # 'outdegree_av',
         # 'link_counts',
         # 'cp_count',
@@ -612,8 +613,8 @@ if __name__ == '__main__':
         # 'ecc',
         # 'pls',
         # 'bow_tie',
-        # 'bow_tie_alluvial',
-        'bow_tie_stats',
+        'bow_tie_alluvial',
+        # 'bow_tie_stats',
     ]
     if 'cycles' in to_plot:
         try:
