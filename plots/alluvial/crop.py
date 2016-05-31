@@ -13,7 +13,6 @@ if __name__ == '__main__':
         (f, f.rsplit('.', 1)[0] + '_full.pdf', f.rsplit('.', 1)[0] + '.pdf')
         for f in files
     ]
-    # files = files[:1]
 
     print('converting to pdf...')
     for f in files:
@@ -24,7 +23,7 @@ if __name__ == '__main__':
 
     print('cropping pdf...')
     for f in files:
-        cmd = 'pdfcrop --margins 15 ' + f[1] + ' ' + f[2]
+        cmd = 'pdfcrop --margins 10 ' + f[1] + ' ' + f[2]
         os.system(cmd)
     cmd = 'pdfcrop --margins 0 ' + 'alluvial_legend_full.pdf' + ' ' +\
           'alluvial_legend.pdf'
